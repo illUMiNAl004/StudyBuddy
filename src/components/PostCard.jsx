@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 const ThumbIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z" />
@@ -12,6 +14,19 @@ const CommentIcon = () => (
 )
 
 export default function PostCard({ post, animationDelay = '0s' }) {
+  const [helpful, setHelpful] = useState(post.helpful ?? 0)
+  const [comments, setComments] = useState(post.comments ?? 0)
+  const [liked, setLiked] = useState(false)
+
+  function toggleLike() {
+    setLiked(prev => !prev)
+    setHelpful(prev => (liked ? prev - 1 : prev + 1))
+  }
+
+  function addComment() {
+    setComments(prev => prev + 1)
+  }
+
   return (
     <div className="post-card" style={{ animationDelay }}>
       <div className="post-header">
@@ -34,17 +49,18 @@ export default function PostCard({ post, animationDelay = '0s' }) {
       </div>
       <p className="post-body">{post.body}</p>
       <div className="post-footer">
-        <button className="react-btn">
+        <button className={`react-btn ${liked ? 'liked' : ''}`} onClick={toggleLike} type="button">
           <ThumbIcon />
-          {post.helpfulText}
+          {helpful} Helpful
         </button>
-        <button className="react-btn">
+        <button className="react-btn" onClick={addComment} type="button">
           <CommentIcon />
-          {post.commentText}
+          {comments} Comment{comments === 1 ? '' : 's'}
         </button>
         <button
           className={`react-btn ${post.actionStyle || ''}`}
           style={post.actionBtnStyle || {}}
+          type="button"
         >
           {post.actionLabel}
         </button>
