@@ -1,6 +1,7 @@
 import Sidebar from '../components/Sidebar'
 import NewPostCard from '../components/NewPostCard'
 import PostCard from '../components/PostCard'
+import supabase from '../../Supabase_Config/supabaseClient'
 
 const POSTS = [
   {
