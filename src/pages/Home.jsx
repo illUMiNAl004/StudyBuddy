@@ -48,7 +48,6 @@ export default function Home() {
     .insert([{ 
       user_id: '452e8572-d91c-4303-9aac-45f545fbca3d', 
       title: course,
-      tags: [],
       description: body,
       group_name: '',
       is_private: false

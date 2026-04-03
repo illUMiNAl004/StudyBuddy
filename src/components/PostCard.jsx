@@ -15,32 +15,11 @@ const CommentIcon = () => (
 
 export default function PostCard({ post, animationDelay = '0s' }) {
  const [helpful, setHelpful] = useState(post.helpful ?? 0)
- const [commentItems, setCommentItems] = useState(post.comments ?? [])
- const [commentCount, setCommentCount] = useState(post.commentCount ?? (post.comments ? post.comments.length : 0))
  const [liked, setLiked] = useState(false)
- const [commenting, setCommenting] = useState(false)
- const [commentInput, setCommentInput] = useState('')
 
  function toggleLike() {
    setLiked(prev => !prev)
    setHelpful(prev => (liked ? prev - 1 : prev + 1))
- }
-
- function toggleCommenting() {
-   setCommenting(prev => !prev)
- }
-
- function submitComment() {
-   const text = commentInput.trim()
-   if (!text) return
-
-   setCommentItems(prev => {
-     const next = [{ id: Date.now(), text }, ...prev]
-     return next.slice(0, 5)
-   })
-   setCommentCount(prev => prev + 1)
-   setCommentInput('')
-   setCommenting(false)
  }
 
  return (
@@ -69,10 +48,6 @@ export default function PostCard({ post, animationDelay = '0s' }) {
          <ThumbIcon />
          {helpful} Helpful
        </button>
-       <button className={`react-btn ${commenting ? 'active' : ''}`} onClick={toggleCommenting} type="button">
-         <CommentIcon />
-         {commentCount} Comment{commentCount === 1 ? '' : 's'}
-       </button>
        <button
          className={`react-btn ${post.actionStyle || ''}`}
          style={post.actionBtnStyle || {}}
@@ -81,32 +56,6 @@ export default function PostCard({ post, animationDelay = '0s' }) {
          {post.actionLabel}
        </button>
      </div>
-
-     {commenting && (
-       <div className="comment-input-section">
-         <textarea
-           className="comment-input"
-           placeholder="Write a comment..."
-           value={commentInput}
-           onChange={e => setCommentInput(e.target.value)}
-           rows={3}
-         />
-         <button className="btn-post" type="button" onClick={submitComment}>
-           Post Comment
-         </button>
-       </div>
-     )}
-
-     {commentItems.length > 0 && (
-       <div className="comment-list">
-         {commentItems.map(item => (
-           <div key={item.id} className="comment-item">
-             <div className="comment-avatar">?</div>
-             <div className="comment-body">{item.text}</div>
-           </div>
-         ))}
-       </div>
-     )}
    </div>
  )
 }
