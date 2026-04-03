@@ -1,6 +1,9 @@
+import { NavLink } from 'react-router-dom';
+
 const NAV_ITEMS = [
   {
     label: 'Home',
+    path: '/',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
@@ -10,6 +13,7 @@ const NAV_ITEMS = [
   },
   {
     label: 'Notes',
+    path: '/notes',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -21,6 +25,7 @@ const NAV_ITEMS = [
   },
   {
     label: 'Groups',
+    path: '/groups',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -32,6 +37,7 @@ const NAV_ITEMS = [
   },
   {
     label: 'Calendar',
+    path: '/calendar',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
@@ -43,25 +49,21 @@ const NAV_ITEMS = [
   },
 ]
 
-export default function Navbar({ activePage, onNavigate }) {
+export default function Navbar() {
   return (
     <nav>
       <span className="nav-logo">study<span>buddy</span></span>
 
       <ul className="nav-links">
-        {NAV_ITEMS.map(({ label, icon }) => (
+        {NAV_ITEMS.map(({ label, path, icon }) => (
           <li key={label}>
-            <a
-              href="#"
-              className={activePage === label ? 'active' : ''}
-              onClick={(e) => {
-                e.preventDefault()
-                onNavigate(label)
-              }}
+            <NavLink
+              to={path}
+              className={({ isActive }) => (isActive ? 'active' : '')}
             >
               {icon}
               {label}
-            </a>
+            </NavLink>
           </li>
         ))}
       </ul>
