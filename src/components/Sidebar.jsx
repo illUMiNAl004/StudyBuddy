@@ -4,7 +4,7 @@ export default function Sidebar() {
       <div className="profile-card">
         <div className="avatar">?</div>
         <h3>Student Name</h3>
-        <p>Course · Year</p>
+        <p>Major · Year</p>
         <div className="profile-stat"><span>Study sessions</span><span>0</span></div>
         <div className="profile-stat"><span>Groups joined</span><span>0</span></div>
         <div className="profile-stat"><span>Notes shared</span><span>0</span></div>

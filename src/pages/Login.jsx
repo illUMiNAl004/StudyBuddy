@@ -11,7 +11,7 @@ export default function Login() {
           <form className="auth-form" onSubmit={(e) => e.preventDefault()}>
             <div className="auth-field">
               <label>Email</label>
-              <input type="email" placeholder="you@university.edu" required />
+              <input type="email" placeholder="you@umass.edu" required />
             </div>
             
             <div className="auth-field">

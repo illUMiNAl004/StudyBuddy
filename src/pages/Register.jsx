@@ -16,7 +16,7 @@ export default function Register() {
 
             <div className="auth-field">
               <label>Email</label>
-              <input type="email" placeholder="you@university.edu" required />
+              <input type="email" placeholder="you@umass.edu" required />
             </div>
             
             <div className="auth-field" style={{ display: 'flex', flexDirection: 'row', gap: '12px' }}>
