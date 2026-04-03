@@ -25,7 +25,7 @@ const POSTS = [
 export default function Home() {
  const [posts, setPosts] = useState(POSTS)
 
- function handlePost(body, course) {
+ async function handlePost(body, course) {
    const newPost = {
      id: Date.now(),
      initial: 'Y',
@@ -41,6 +41,17 @@ export default function Home() {
      actionLabel: 'Action →',
      actionStyle: 'join',
    }
+
+   const { data, error } = await supabase
+    .from('posts')
+    .insert([{ 
+      user_id: '452e8572-d91c-4303-9aac-45f545fbca3d', 
+      title: course,
+      tags: [],
+      description: body,
+      group_name: '',
+      is_private: false
+    }])
 
    setPosts(prevPosts => [newPost, ...prevPosts])
  }
