@@ -1,17 +1,22 @@
-import { useState } from 'react'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import Navbar from './components/Navbar'
 import Home from './pages/Home'
+import Login from './pages/Login'
+import Register from './pages/Register'
 
 export default function App() {
-  const [activePage, setActivePage] = useState('Home')
-
   return (
     <>
-      <Navbar activePage={activePage} onNavigate={setActivePage} />
-      {activePage === 'Home' && <Home />}
-      {activePage === 'Notes' && <Placeholder label="Notes" />}
-      {activePage === 'Groups' && <Placeholder label="Groups" />}
-      {activePage === 'Calendar' && <Placeholder label="Calendar" />}
+      <Navbar />
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/home" element={<Navigate to="/" />} />
+        <Route path="/notes" element={<Placeholder label="Notes" />} />
+        <Route path="/groups" element={<Placeholder label="Groups" />} />
+        <Route path="/calendar" element={<Placeholder label="Calendar" />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+      </Routes>
     </>
   )
 }

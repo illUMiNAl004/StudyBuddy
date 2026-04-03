@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import NewPostCard from "../components/NewPostCard";
 import PostCard from "../components/PostCard";
+import supabase from "../../Supabase_Config/supabaseClient";
 
 const POSTS = [
   {
@@ -46,6 +48,26 @@ export default function Home() {
 
   return (
     <div className="page">
+      <div style={{
+        background: 'var(--surface)', 
+        border: '1px solid var(--border)', 
+        borderRadius: '14px', 
+        padding: '16px 24px', 
+        marginBottom: '20px', 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center'
+      }}>
+        <div>
+           <h3 style={{fontSize: '1rem', marginBottom: '4px'}}>Join StudyBuddy</h3>
+           <p style={{fontSize: '0.85rem', color: 'var(--muted)'}}>Sign in or create an account to start sharing notes</p>
+        </div>
+        <div style={{display: 'flex', gap: '12px'}}>
+           <Link to="/login" className="btn-auth">Log In</Link>
+           <Link to="/register" className="btn-auth primary">Create Account</Link>
+        </div>
+      </div>
+      
       <div className="layout">
         <Sidebar />
         <main className="feed">
