@@ -1,16 +1,27 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, useLocation } from 'react-router-dom'
 import Navbar from './components/Navbar'
 import Home from './pages/Home'
 import Login from './pages/Login'
 import Register from './pages/Register'
 
 export default function App() {
+  const location = useLocation()
+
+  const getActivePage = () => {
+    switch (location.pathname) {
+      case '/': return 'Home'
+      case '/notes': return 'Notes'
+      case '/groups': return 'Groups'
+      case '/calendar': return 'Calendar'
+      default: return ''
+    }
+  }
+
   return (
     <>
-      <Navbar />
+      <Navbar activePage={getActivePage()} />
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/home" element={<Navigate to="/" />} />
         <Route path="/notes" element={<Placeholder label="Notes" />} />
         <Route path="/groups" element={<Placeholder label="Groups" />} />
         <Route path="/calendar" element={<Placeholder label="Calendar" />} />

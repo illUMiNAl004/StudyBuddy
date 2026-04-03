@@ -48,26 +48,15 @@ export default function Home() {
 
   return (
     <div className="page">
-      <div style={{
-        background: 'var(--surface)', 
-        border: '1px solid var(--border)', 
-        borderRadius: '14px', 
-        padding: '16px 24px', 
-        marginBottom: '20px', 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center'
-      }}>
-        <div>
-           <h3 style={{fontSize: '1rem', marginBottom: '4px'}}>Join StudyBuddy</h3>
-           <p style={{fontSize: '0.85rem', color: 'var(--muted)'}}>Sign in or create an account to start sharing notes</p>
-        </div>
-        <div style={{display: 'flex', gap: '12px'}}>
-           <Link to="/login" className="btn-auth">Log In</Link>
-           <Link to="/register" className="btn-auth primary">Create Account</Link>
+      <div className="auth-header" style={{ marginBottom: '24px', justifyContent: 'center' }}>
+        <div style={{ background: 'var(--surface)', padding: '16px 24px', borderRadius: '12px', border: '1px solid var(--border)', display: 'flex', gap: '16px', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
+           <span style={{ fontSize: '0.95rem', fontWeight: 500, color: 'var(--text)' }}>Welcome to StudyBuddy! Ready to sync your studies?</span>
+           <div style={{ display: 'flex', gap: '12px' }}>
+              <Link to="/login" className="btn-auth">Log In</Link>
+              <Link to="/register" className="btn-auth primary">Register</Link>
+           </div>
         </div>
       </div>
-      
       <div className="layout">
         <Sidebar />
         <main className="feed">
