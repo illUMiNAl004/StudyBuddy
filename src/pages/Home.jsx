@@ -1,60 +1,78 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import NewPostCard from "../components/NewPostCard";
 import PostCard from "../components/PostCard";
 import supabase from "../../Supabase_Config/supabaseClient";
 
-const POSTS = [
-  {
-    id: 1,
-    initial: "?",
-    name: "Student Name",
-    course: "Course Name",
-    time: "Time ago",
-    avatarBg: "#e8f0eb",
-    avatarColor: "#5a8a62",
+function timeAgo(dateString) {
+  const seconds = Math.floor((Date.now() - new Date(dateString)) / 1000);
+  if (seconds < 60) return 'Just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+function mapRow(row) {
+  return {
+    id: row.id,
+    initial: row.title?.[0]?.toUpperCase() || '?',
+    name: 'Student',
+    course: row.title || 'General',
+    time: timeAgo(row.created_at),
+    avatarBg: '#e8f0eb',
+    avatarColor: '#5a8a62',
     tagStyle: {},
-    body: "Post body goes here.",
-    helpfulText: "Helpful · 0",
-    commentText: "Comment · 0",
-    actionLabel: "Action →",
-    actionStyle: "join",
-  }, //this can be used to add more posts into here
-];
+    body: row.description,
+    helpful: 0,
+    actionLabel: 'Action →',
+    actionStyle: 'join',
+  };
+}
 
 export default function Home() {
-  const [posts, setPosts] = useState(POSTS);
+  const [posts, setPosts] = useState([]);
 
- async function handlePost(body, course) {
-   const newPost = {
-     id: Date.now(),
-     initial: 'Y',
-     name: 'You',
-     course,
-     time: 'Just now',
-     avatarBg: '#dbefff',
-     avatarColor: '#1a5bbc',
-     tagStyle: {},
-     body,
-     helpfulText: 'Helpful · 0',
-     commentText: 'Comment · 0',
-     actionLabel: 'Action →',
-     actionStyle: 'join',
-   }
+  useEffect(() => {
+    async function fetchPosts() {
+      const { data, error } = await supabase
+        .from('posts')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-   const { data, error } = await supabase
-    .from('posts')
-    .insert([{ 
-      user_id: '452e8572-d91c-4303-9aac-45f545fbca3d', 
-      title: course,
-      description: body,
-      group_name: '',
-      is_private: false
-    }])
+      if (error) {
+        console.error('Error fetching posts:', error);
+        return;
+      }
+      setPosts(data.map(mapRow));
+    }
+    fetchPosts();
+  }, []);
 
-   setPosts(prevPosts => [newPost, ...prevPosts])
- }
+  async function handlePost(body, course) {
+    const { data, error } = await supabase
+      .from('posts')
+      .insert([{
+        user_id: '452e8572-d91c-4303-9aac-45f545fbca3d',
+        title: course,
+        description: body,
+        group_name: '',
+        is_private: false,
+      }])
+      .select();
+
+    if (error) {
+      console.error('Error creating post:', error);
+      return;
+    }
+
+    if (data && data.length > 0) {
+      setPosts(prev => [mapRow(data[0]), ...prev]);
+    }
+  }
 
   return (
     <div className="page">
