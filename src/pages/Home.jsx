@@ -19,9 +19,9 @@ function timeAgo(dateString) {
 function mapRow(row) {
   return {
     id: row.id,
-    initial: row.title?.[0]?.toUpperCase() || '?',
+    initial: row.course?.[0]?.toUpperCase() || '?',
     name: 'Student',
-    course: row.title || 'General',
+    course: row.course,
     time: timeAgo(row.created_at),
     avatarBg: '#e8f0eb',
     avatarColor: '#5a8a62',
@@ -57,7 +57,7 @@ export default function Home() {
       .from('posts')
       .insert([{
         user_id: '452e8572-d91c-4303-9aac-45f545fbca3d',
-        title: course,
+        course: course,
         description: body,
         group_name: '',
         is_private: false,

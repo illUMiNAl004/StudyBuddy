@@ -4,18 +4,33 @@ export default function NewPostCard({ onPost }) {
   const [expanded, setExpanded] = useState(false);
   const [courseInput, setCourseInput] = useState("");
   const [postInput, setPostInput] = useState("");
+  const [error, setError] = useState("");
 
   function reset() {
     setExpanded(false);
     setCourseInput("");
     setPostInput("");
+    setError("");
   }
 
   function submit() {
-    const course = courseInput.trim() || "StudyBuddy";
+    const course = courseInput.trim();
     const body = postInput.trim();
-    if (!body) return;
 
+    if (!course && !body) {
+      setError("Add a course name and post content");
+      return;
+    }
+    if (!course) {
+      setError("Add a course name");
+      return;
+    }
+    if (!body) {
+      setError("Add post content");
+      return;
+    }
+
+    setError("");
     onPost?.(body, course);
     reset();
   }
@@ -72,6 +87,10 @@ export default function NewPostCard({ onPost }) {
                 rows={6}
               />
             </div>
+
+            {error && (
+              <p style={{ color: '#c44', fontSize: '0.85rem', margin: '0 0 0.5rem' }}>{error}</p>
+            )}
 
             <div className="post-actions" style={{ marginTop: "0.75rem" }}>
               <button className="btn-post" type="button" onClick={submit}>
