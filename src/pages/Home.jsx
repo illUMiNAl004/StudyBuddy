@@ -26,25 +26,36 @@ const POSTS = [
 export default function Home() {
   const [posts, setPosts] = useState(POSTS);
 
-  function handlePost(body, course) {
-    const newPost = {
-      id: Date.now(),
-      initial: "Y",
-      name: "You",
-      course,
-      time: "Just now",
-      avatarBg: "#dbefff",
-      avatarColor: "#1a5bbc",
-      tagStyle: {},
-      body,
-      helpfulText: "Helpful · 0",
-      commentText: "Comment · 0",
-      actionLabel: "Action →",
-      actionStyle: "join",
-    };
+ async function handlePost(body, course) {
+   const newPost = {
+     id: Date.now(),
+     initial: 'Y',
+     name: 'You',
+     course,
+     time: 'Just now',
+     avatarBg: '#dbefff',
+     avatarColor: '#1a5bbc',
+     tagStyle: {},
+     body,
+     helpfulText: 'Helpful · 0',
+     commentText: 'Comment · 0',
+     actionLabel: 'Action →',
+     actionStyle: 'join',
+   }
 
-    setPosts((prevPosts) => [newPost, ...prevPosts]);
-  }
+   const { data, error } = await supabase
+    .from('posts')
+    .insert([{ 
+      user_id: '452e8572-d91c-4303-9aac-45f545fbca3d', 
+      title: course,
+      tags: [],
+      description: body,
+      group_name: '',
+      is_private: false
+    }])
+
+   setPosts(prevPosts => [newPost, ...prevPosts])
+ }
 
   return (
     <div className="page">
