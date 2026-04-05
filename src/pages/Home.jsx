@@ -4,6 +4,7 @@ import Sidebar from "../components/Sidebar";
 import NewPostCard from "../components/NewPostCard";
 import PostCard from "../components/PostCard";
 import supabase from "../../Supabase_Config/supabaseClient";
+import { useAuth } from "../context/AuthContext";
 
 function timeAgo(dateString) {
   const seconds = Math.floor((Date.now() - new Date(dateString)) / 1000);
@@ -20,7 +21,7 @@ function mapRow(row) {
   return {
     id: row.id,
     initial: row.course?.[0]?.toUpperCase() || '?',
-    name: 'Student',
+    name: row.profiles?.full_name || 'Student',
     course: row.course,
     time: timeAgo(row.created_at),
     avatarBg: '#e8f0eb',
@@ -35,12 +36,13 @@ function mapRow(row) {
 
 export default function Home() {
   const [posts, setPosts] = useState([]);
+  const { user } = useAuth();
 
   useEffect(() => {
     async function fetchPosts() {
       const { data, error } = await supabase
         .from('posts')
-        .select('*')
+        .select('*, profiles(full_name)')
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -56,7 +58,7 @@ export default function Home() {
     const { data, error } = await supabase
       .from('posts')
       .insert([{
-        user_id: '452e8572-d91c-4303-9aac-45f545fbca3d',
+        user_id: user?.id || '452e8572-d91c-4303-9aac-45f545fbca3d',
         course: course,
         description: body,
         group_name: '',
@@ -76,15 +78,17 @@ export default function Home() {
 
   return (
     <div className="page">
-      <div className="auth-header" style={{ marginBottom: '24px', justifyContent: 'center' }}>
-        <div style={{ background: 'var(--surface)', padding: '16px 24px', borderRadius: '12px', border: '1px solid var(--border)', display: 'flex', gap: '16px', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
-           <span style={{ fontSize: '0.95rem', fontWeight: 500, color: 'var(--text)' }}>Welcome to StudyBuddy! Ready to sync your studies?</span>
-           <div style={{ display: 'flex', gap: '12px' }}>
-              <Link to="/login" className="btn-auth">Log In</Link>
-              <Link to="/register" className="btn-auth primary">Register</Link>
-           </div>
+      {!user && (
+        <div className="auth-header" style={{ marginBottom: '24px', justifyContent: 'center' }}>
+          <div style={{ background: 'var(--surface)', padding: '16px 24px', borderRadius: '12px', border: '1px solid var(--border)', display: 'flex', gap: '16px', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
+             <span style={{ fontSize: '0.95rem', fontWeight: 500, color: 'var(--text)' }}>Welcome to StudyBuddy! Ready to sync your studies?</span>
+             <div style={{ display: 'flex', gap: '12px' }}>
+                <Link to="/login" className="btn-auth">Log In</Link>
+                <Link to="/register" className="btn-auth primary">Register</Link>
+             </div>
+          </div>
         </div>
-      </div>
+      )}
       <div className="layout">
         <Sidebar />
         <main className="feed">

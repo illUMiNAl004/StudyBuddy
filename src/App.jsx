@@ -4,6 +4,8 @@ import Home from './pages/Home'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import ForgotPassword from './pages/ForgotPassword'
+import ProtectedRoute from './components/ProtectedRoute'
+import Profile from './pages/Profile'
 
 export default function App() {
   const location = useLocation()
@@ -22,13 +24,19 @@ export default function App() {
     <>
       <Navbar activePage={getActivePage()} />
       <Routes>
+        {/* Public Routes */}
         <Route path="/" element={<Home />} />
-        <Route path="/notes" element={<Placeholder label="Notes" />} />
-        <Route path="/groups" element={<Placeholder label="Groups" />} />
-        <Route path="/calendar" element={<Placeholder label="Calendar" />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+        
+        {/* Protected Routes */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/notes" element={<Placeholder label="Notes" />} />
+          <Route path="/groups" element={<Placeholder label="Groups" />} />
+          <Route path="/calendar" element={<Placeholder label="Calendar" />} />
+          <Route path="/profile" element={<Profile />} />
+        </Route>
       </Routes>
     </>
   )

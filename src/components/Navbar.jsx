@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const NAV_ITEMS = [
   {
@@ -46,6 +47,8 @@ const NAV_ITEMS = [
 ]
 
 export default function Navbar({ activePage }) {
+  const { user } = useAuth();
+  
   return (
     <nav>
       <span className="nav-logo">study<span>buddy</span></span>
@@ -67,7 +70,17 @@ export default function Navbar({ activePage }) {
         })}
       </ul>
 
-      <div className="nav-avatar">??</div>
+      {user ? (
+        <Link to="/profile" style={{ textDecoration: 'none' }}>
+          <div className="nav-avatar" title="Settings">
+            {user.email?.[0].toUpperCase() || 'U'}
+          </div>
+        </Link>
+      ) : (
+        <Link to="/login" style={{ textDecoration: 'none' }}>
+           <div className="nav-avatar" style={{ width: 'auto', padding: '0 12px', fontSize: '0.8rem', borderRadius: '20px' }}>Log In</div>
+        </Link>
+      )}
     </nav>
   )
 }
