@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 const ThumbIcon = () => (
  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -7,24 +7,64 @@ const ThumbIcon = () => (
  </svg>
 )
 
-const CommentIcon = () => (
- <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-   <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+const MoreIcon = () => (
+ <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+   <circle cx="12" cy="5" r="1.5" />
+   <circle cx="12" cy="12" r="1.5" />
+   <circle cx="12" cy="19" r="1.5" />
  </svg>
 )
 
-export default function PostCard({ post, animationDelay = '0s' }) {
+export default function PostCard({ post, animationDelay = '0s', currentUserId, onEdit, onDelete, onLike }) {
  const [helpful, setHelpful] = useState(post.helpful ?? 0)
  const [liked, setLiked] = useState(false)
+ const [menuOpen, setMenuOpen] = useState(false)
+ const [isEditing, setIsEditing] = useState(false)
+ const [draftBody, setDraftBody] = useState(post.body)
+ const menuRef = useRef(null)
+ const isOwner = post.userId && currentUserId && post.userId === currentUserId
+
+ useEffect(() => {
+   function handleClickOutside(event) {
+     if (menuRef.current && !menuRef.current.contains(event.target)) {
+       setMenuOpen(false)
+     }
+   }
+   document.addEventListener('mousedown', handleClickOutside)
+   return () => document.removeEventListener('mousedown', handleClickOutside)
+ }, [])
 
  function toggleLike() {
-   setLiked(prev => !prev)
-   setHelpful(prev => (liked ? prev - 1 : prev + 1))
+   const newLiked = !liked
+   setLiked(newLiked)
+   setHelpful(prev => (newLiked ? prev + 1 : prev - 1))
+   onLike?.(post.id, newLiked)
+ }
+
+ function startEdit() {
+   setMenuOpen(false)
+   setIsEditing(true)
+ }
+
+ function cancelEdit() {
+   setIsEditing(false)
+   setDraftBody(post.body)
+ }
+
+ function saveEdit() {
+   if (!draftBody.trim()) return
+   onEdit?.(post.id, draftBody.trim())
+   setIsEditing(false)
+ }
+
+ function deletePost() {
+   setMenuOpen(false)
+   onDelete?.(post.id)
  }
 
  return (
    <div className="post-card" style={{ animationDelay }}>
-     <div className="post-header">
+     <div className="post-header" ref={menuRef}>
        <div
          className="mini-avatar"
          style={{ background: post.avatarBg, color: post.avatarColor }}
@@ -41,8 +81,38 @@ export default function PostCard({ post, animationDelay = '0s' }) {
        >
          {post.course}
        </span>
+       {isOwner && (
+         <div className="post-options">
+           <button type="button" className="post-options-trigger" onClick={() => setMenuOpen((prev) => !prev)}>
+             <MoreIcon />
+           </button>
+           {menuOpen && (
+             <div className="post-options-menu">
+               <button type="button" onClick={startEdit}>Edit post</button>
+               <button type="button" onClick={deletePost}>Delete post</button>
+             </div>
+           )}
+         </div>
+       )}
      </div>
-     <p className="post-body">{post.body}</p>
+
+     {isEditing ? (
+       <div className="post-edit-section">
+         <textarea
+           className="post-edit-textarea"
+           value={draftBody}
+           onChange={(e) => setDraftBody(e.target.value)}
+           rows={5}
+         />
+         <div className="post-edit-actions">
+           <button type="button" className="react-btn" onClick={cancelEdit}>Cancel</button>
+           <button type="button" className="react-btn join" onClick={saveEdit}>Save</button>
+         </div>
+       </div>
+     ) : (
+       <p className="post-body">{post.body}</p>
+     )}
+
      <div className="post-footer">
        <button className={`react-btn ${liked ? 'liked' : ''}`} onClick={toggleLike} type="button">
          <ThumbIcon />
