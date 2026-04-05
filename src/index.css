@@ -406,9 +406,93 @@ nav {
  align-items: flex-start;
  gap: 10px;
  margin-bottom: 12px;
+ position: relative;
 }
 
 .post-meta { flex: 1; }
+
+.post-options {
+ position: relative;
+}
+
+.post-options-trigger {
+ background: none;
+ border: none;
+ color: #000;
+ cursor: pointer;
+ padding: 8px;
+ border-radius: 50%;
+ display: inline-flex;
+ align-items: center;
+ justify-content: center;
+ transition: background 0.15s;
+ width: 32px;
+ height: 32px;
+}
+
+.post-options-trigger svg {
+ width: 20px;
+ height: 20px;
+}
+
+.post-options-trigger:hover {
+ background: rgba(0, 0, 0, 0.08);
+}
+
+.post-options-menu {
+ position: absolute;
+ right: 0;
+ top: 32px;
+ background: var(--surface);
+ border: 1px solid var(--border);
+ border-radius: 12px;
+ box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+ display: flex;
+ flex-direction: column;
+ min-width: 140px;
+ overflow: hidden;
+ z-index: 2;
+}
+
+.post-options-menu button {
+ text-align: left;
+ background: none;
+ border: none;
+ color: var(--text);
+ padding: 10px 14px;
+ cursor: pointer;
+ font-size: 0.9rem;
+ transition: background 0.15s;
+}
+
+.post-options-menu button:hover {
+ background: var(--accent-light);
+}
+
+.post-edit-section {
+ display: flex;
+ flex-direction: column;
+ gap: 10px;
+ margin-bottom: 12px;
+}
+
+.post-edit-textarea {
+ width: 100%;
+ min-height: 120px;
+ border: 1px solid var(--border);
+ border-radius: 14px;
+ padding: 12px;
+ font-family: 'DM Sans', sans-serif;
+ font-size: 0.92rem;
+ color: var(--text);
+ resize: vertical;
+}
+
+.post-edit-actions {
+ display: flex;
+ gap: 10px;
+ justify-content: flex-end;
+}
 
 .post-meta strong { font-size: 0.88rem; font-weight: 600; display: block; }
 

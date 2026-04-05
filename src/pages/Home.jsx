@@ -20,15 +20,16 @@ function timeAgo(dateString) {
 function mapRow(row) {
   return {
     id: row.id,
-    initial: row.course?.[0]?.toUpperCase() || '?',
-    name: row.profiles?.full_name || 'Student',
-    course: row.course,
+    userId: row.user_id,
+    initial: (row.course || row.title)?.[0]?.toUpperCase() || '?',
+    name: row.profiles?.full_name || row.name || 'Student',
+    course: row.course || row.title || 'General',
     time: timeAgo(row.created_at),
     avatarBg: '#e8f0eb',
     avatarColor: '#5a8a62',
     tagStyle: {},
     body: row.description,
-    helpful: 0,
+    helpful: row.helpful ?? 0,
     actionLabel: 'Action →',
     actionStyle: 'join',
   };
@@ -42,7 +43,7 @@ export default function Home() {
     async function fetchPosts() {
       const { data, error } = await supabase
         .from('posts')
-        .select('*, profiles(full_name)')
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -52,7 +53,56 @@ export default function Home() {
       setPosts(data.map(mapRow));
     }
     fetchPosts();
-  }, []);
+  }, [user]);
+
+  async function handleDelete(postId) {
+    const { error } = await supabase
+      .from('posts')
+      .delete()
+      .eq('id', postId);
+
+    if (error) {
+      console.error('Error deleting post:', error);
+      return;
+    }
+
+    setPosts((prev) => prev.filter((post) => post.id !== postId));
+  }
+
+  async function handleEdit(postId, updatedBody) {
+    const { data, error } = await supabase
+      .from('posts')
+      .update({ description: updatedBody })
+      .eq('id', postId)
+      .select();
+
+    if (error) {
+      console.error('Error updating post:', error);
+      return;
+    }
+
+    if (data && data.length > 0) {
+      setPosts((prev) => prev.map((post) => post.id === postId ? mapRow(data[0]) : post));
+    }
+  }
+
+  async function handleLike(postId, liked) {
+    const delta = liked ? 1 : -1;
+    const currentPost = posts.find((p) => p.id === postId);
+    const newCount = (currentPost?.helpful ?? 0) + delta;
+
+    const { error } = await supabase
+      .from('posts')
+      .update({ helpful: newCount })
+      .eq('id', postId);
+
+    if (error) {
+      console.error('Error updating helpful count:', error);
+      return;
+    }
+
+    setPosts((prev) => prev.map((p) => p.id === postId ? { ...p, helpful: newCount } : p));
+  }
 
   async function handlePost(body, course) {
     const { data, error } = await supabase
@@ -97,6 +147,10 @@ export default function Home() {
             <PostCard
               key={post.id}
               post={post}
+              currentUserId={user?.id}
+              onDelete={handleDelete}
+              onEdit={handleEdit}
+              onLike={handleLike}
               animationDelay={`${(i + 1) * 0.05}s`}
             />
           ))}
