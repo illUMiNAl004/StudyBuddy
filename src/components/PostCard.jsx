@@ -15,9 +15,9 @@ const MoreIcon = () => (
  </svg>
 )
 
-export default function PostCard({ post, animationDelay = '0s', currentUserId, onEdit, onDelete, onLike }) {
+export default function PostCard({ post, animationDelay = '0s', currentUserId, initialLiked = false, onEdit, onDelete, onLike }) {
  const [helpful, setHelpful] = useState(post.helpful ?? 0)
- const [liked, setLiked] = useState(false)
+ const [liked, setLiked] = useState(initialLiked)
  const [menuOpen, setMenuOpen] = useState(false)
  const [isEditing, setIsEditing] = useState(false)
  const [draftBody, setDraftBody] = useState(post.body)
@@ -33,6 +33,14 @@ export default function PostCard({ post, animationDelay = '0s', currentUserId, o
    document.addEventListener('mousedown', handleClickOutside)
    return () => document.removeEventListener('mousedown', handleClickOutside)
  }, [])
+
+ useEffect(() => {
+   setLiked(initialLiked)
+ }, [initialLiked])
+
+ useEffect(() => {
+   setHelpful(post.helpful ?? 0)
+ }, [post.helpful])
 
  function toggleLike() {
    const newLiked = !liked

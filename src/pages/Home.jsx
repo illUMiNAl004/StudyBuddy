@@ -50,7 +50,19 @@ export default function Home() {
         console.error('Error fetching posts:', error);
         return;
       }
-      setPosts(data.map(mapRow));
+
+      let likedPostIds = new Set();
+      if (user) {
+        const { data: likesData } = await supabase
+          .from('post_likes')
+          .select('post_id')
+          .eq('user_id', user.id);
+        if (likesData) {
+          likedPostIds = new Set(likesData.map((l) => String(l.post_id)));
+        }
+      }
+
+      setPosts(data.map((row) => ({ ...mapRow(row), likedByUser: likedPostIds.has(String(row.id)) })));
     }
     fetchPosts();
   }, [user]);
@@ -87,6 +99,30 @@ export default function Home() {
   }
 
   async function handleLike(postId, liked) {
+    if (!user) return;
+
+    const postIdStr = String(postId);
+
+    if (liked) {
+      const { error: likeError } = await supabase
+        .from('post_likes')
+        .insert({ user_id: user.id, post_id: postIdStr });
+      if (likeError) {
+        console.error('Error inserting like (did you run 03_post_likes_schema.sql?):', likeError);
+        return;
+      }
+    } else {
+      const { error: unlikeError } = await supabase
+        .from('post_likes')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('post_id', postIdStr);
+      if (unlikeError) {
+        console.error('Error deleting like:', unlikeError);
+        return;
+      }
+    }
+
     const delta = liked ? 1 : -1;
     const currentPost = posts.find((p) => p.id === postId);
     const newCount = (currentPost?.helpful ?? 0) + delta;
@@ -101,7 +137,11 @@ export default function Home() {
       return;
     }
 
-    setPosts((prev) => prev.map((p) => p.id === postId ? { ...p, helpful: newCount } : p));
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id === postId ? { ...p, helpful: newCount, likedByUser: liked } : p
+      )
+    );
   }
 
   async function handlePost(body, course) {
@@ -148,6 +188,7 @@ export default function Home() {
               key={post.id}
               post={post}
               currentUserId={user?.id}
+              initialLiked={post.likedByUser ?? false}
               onDelete={handleDelete}
               onEdit={handleEdit}
               onLike={handleLike}
