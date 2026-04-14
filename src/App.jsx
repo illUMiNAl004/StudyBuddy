@@ -6,6 +6,7 @@ import Register from './pages/Register'
 import ForgotPassword from './pages/ForgotPassword'
 import ProtectedRoute from './components/ProtectedRoute'
 import Profile from './pages/Profile'
+import Notes from './pages/Notes'
 
 export default function App() {
   const location = useLocation()
@@ -32,7 +33,7 @@ export default function App() {
         
         {/* Protected Routes */}
         <Route element={<ProtectedRoute />}>
-          <Route path="/notes" element={<Placeholder label="Notes" />} />
+          <Route path="/notes" element={<Notes />} />
           <Route path="/groups" element={<Placeholder label="Groups" />} />
           <Route path="/calendar" element={<Placeholder label="Calendar" />} />
           <Route path="/profile" element={<Profile />} />
