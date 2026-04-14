@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import NewPostCard from "../components/NewPostCard";
 import PostCard from "../components/PostCard";
+import AuthPromptModal from "../components/AuthPromptModal";
 import supabase from "../../Supabase_Config/supabaseClient";
 import { useAuth } from "../context/AuthContext";
 
@@ -37,7 +38,12 @@ function mapRow(row) {
 
 export default function Home() {
   const [posts, setPosts] = useState([]);
+  const [authPromptOpen, setAuthPromptOpen] = useState(false);
   const { user } = useAuth();
+
+  function openAuthPrompt() {
+    setAuthPromptOpen(true);
+  }
 
   useEffect(() => {
     async function fetchPosts() {
@@ -182,21 +188,28 @@ export default function Home() {
       <div className="layout">
         <Sidebar />
         <main className="feed">
-          <NewPostCard onPost={handlePost} />
+          <NewPostCard
+            onPost={handlePost}
+            isAuthenticated={Boolean(user)}
+            onAuthRequired={openAuthPrompt}
+          />
           {posts.map((post, i) => (
             <PostCard
               key={post.id}
               post={post}
               currentUserId={user?.id}
               initialLiked={post.likedByUser ?? false}
+              isAuthenticated={Boolean(user)}
               onDelete={handleDelete}
               onEdit={handleEdit}
               onLike={handleLike}
+              onAuthRequired={openAuthPrompt}
               animationDelay={`${(i + 1) * 0.05}s`}
             />
           ))}
         </main>
       </div>
+      <AuthPromptModal open={authPromptOpen} onClose={() => setAuthPromptOpen(false)} />
     </div>
   );
 }

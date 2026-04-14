@@ -15,7 +15,7 @@ const MoreIcon = () => (
  </svg>
 )
 
-export default function PostCard({ post, animationDelay = '0s', currentUserId, initialLiked = false, onEdit, onDelete, onLike }) {
+export default function PostCard({ post, animationDelay = '0s', currentUserId, initialLiked = false, onEdit, onDelete, onLike, isAuthenticated, onAuthRequired, onAction }) {
  const [helpful, setHelpful] = useState(post.helpful ?? 0)
  const [liked, setLiked] = useState(initialLiked)
  const [menuOpen, setMenuOpen] = useState(false)
@@ -43,10 +43,24 @@ export default function PostCard({ post, animationDelay = '0s', currentUserId, i
  }, [post.helpful])
 
  function toggleLike() {
+   if (!isAuthenticated) {
+     onAuthRequired?.()
+     return
+   }
+
    const newLiked = !liked
    setLiked(newLiked)
    setHelpful(prev => (newLiked ? prev + 1 : prev - 1))
    onLike?.(post.id, newLiked)
+ }
+
+ function handleActionClick() {
+   if (!isAuthenticated) {
+     onAuthRequired?.()
+     return
+   }
+
+   onAction?.(post.id)
  }
 
  function startEdit() {
@@ -130,6 +144,7 @@ export default function PostCard({ post, animationDelay = '0s', currentUserId, i
          className={`react-btn ${post.actionStyle || ''}`}
          style={post.actionBtnStyle || {}}
          type="button"
+        onClick={handleActionClick}
        >
          {post.actionLabel}
        </button>
