@@ -110,11 +110,18 @@ export default function Profile() {
             <div className="auth-field" style={{ display: 'flex', flexDirection: 'row', gap: '12px' }}>
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label>Major</label>
-                <input 
-                  type="text" 
+                <select 
                   value={major}
                   onChange={(e) => setMajor(e.target.value)}
-                />
+                  required
+                >
+                  <option value="" disabled>Select a major...</option>
+                  <option value="Computer Science">Computer Science</option>
+                  <option value="Business">Business</option>
+                  <option value="Biology">Biology</option>
+                  <option value="Chemistry">Chemistry</option>
+                  <option value="Computer Engineering">Computer Engineering</option>
+                </select>
               </div>
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label>Class Year</label>
