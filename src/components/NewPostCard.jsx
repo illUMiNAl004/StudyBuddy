@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-export default function NewPostCard({ onPost }) {
+export default function NewPostCard({ onPost, isAuthenticated, onAuthRequired }) {
   const [expanded, setExpanded] = useState(false);
   const [courseInput, setCourseInput] = useState("");
   const [postInput, setPostInput] = useState("");
@@ -40,7 +40,13 @@ export default function NewPostCard({ onPost }) {
       <div className="new-post-card">
         <div
           className="new-post-top"
-          onClick={() => setExpanded(true)}
+          onClick={() => {
+            if (!isAuthenticated) {
+              onAuthRequired?.();
+              return;
+            }
+            setExpanded(true);
+          }}
           style={{ cursor: "text" }}
         >
           <div className="mini-avatar">?</div>
