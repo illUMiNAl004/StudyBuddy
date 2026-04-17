@@ -151,13 +151,15 @@ export default function Home() {
   }
 
   async function handlePost(body, course) {
+    const GROUP_ID = '23fad67b-51f1-4d6b-b88a-8acce722e063';
+
     const { data, error } = await supabase
       .from('posts')
       .insert([{
         user_id: user?.id || '452e8572-d91c-4303-9aac-45f545fbca3d',
+        group_id: GROUP_ID,
         course: course,
         description: body,
-        group_name: '',
         is_private: false,
       }])
       .select();
