@@ -205,12 +205,10 @@ export default function Groups() {
     }
   }
 
-  useEffect(() => {
+  async function load() {
     if (!user) return
-
-    async function load() {
-      setLoading(true)
-      setErr('')
+    setLoading(true)
+    setErr('')
 
       try {
         const { data: memberships, error: e1 } = await supabase
@@ -361,9 +359,24 @@ export default function Groups() {
       } finally {
         setLoading(false)
       }
-    }
+  }
+
+  useEffect(() => {
+    if (!user) return
 
     load()
+
+    // Re-fetch when the user is added to a new group (e.g. just created one)
+    const subscription = supabase
+      .channel('user_in_group_changes')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'user_in_group', filter: `user_id=eq.${user.id}` },
+        () => load()
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(subscription) }
   }, [user])
 
   useEffect(() => {

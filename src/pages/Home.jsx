@@ -162,7 +162,7 @@ export default function Home() {
         .insert([{
           group_title: newGroupName,
           creator_id: user.id,
-          requires_invite: true,
+          requires_invite: false,
         }])
         .select('id')
         .single();
@@ -173,6 +173,14 @@ export default function Home() {
       }
 
       groupId = groupData.id;
+
+      // Add creator as a member so the group appears on their Groups page
+      const { error: memberError } = await supabase
+        .from('user_in_group')
+        .insert([{ user_id: user.id, group_id: groupId }]);
+      if (memberError) {
+        console.error('Error adding creator to user_in_group:', memberError);
+      }
     }
 
     // Step 2: Create the post linked to the group
