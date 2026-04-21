@@ -150,14 +150,37 @@ export default function Home() {
     );
   }
 
-  async function handlePost(body, course) {
-    const GROUP_ID = '23fad67b-51f1-4d6b-b88a-8acce722e063';
+  async function handlePost(body, course, groupOptions = {}) {
+    const { createNewGroup, newGroupName, selectedGroupId } = groupOptions;
 
+    let groupId = selectedGroupId || '23fad67b-51f1-4d6b-b88a-8acce722e063';
+
+    // Step 1: If user wants a new group, create it first then grab its id
+    if (createNewGroup && newGroupName) {
+      const { data: groupData, error: groupError } = await supabase
+        .from('groups')
+        .insert([{
+          group_title: newGroupName,
+          creator_id: user.id,
+          requires_invite: true,
+        }])
+        .select('id')
+        .single();
+
+      if (groupError) {
+        console.error('Error creating group:', groupError);
+        return;
+      }
+
+      groupId = groupData.id;
+    }
+
+    // Step 2: Create the post linked to the group
     const { data, error } = await supabase
       .from('posts')
       .insert([{
-        user_id: user?.id || '452e8572-d91c-4303-9aac-45f545fbca3d',
-        group_id: GROUP_ID,
+        user_id: user.id,
+        group_id: groupId,
         course: course,
         description: body,
         is_private: false,
@@ -167,6 +190,14 @@ export default function Home() {
     if (error) {
       console.error('Error creating post:', error);
       return;
+    }
+
+    // Step 3: If we just made a new group, backfill the post_id onto it
+    if (createNewGroup && data?.[0]?.id) {
+      await supabase
+        .from('groups')
+        .update({ post_id: data[0].id })
+        .eq('id', groupId);
     }
 
     if (data && data.length > 0) {

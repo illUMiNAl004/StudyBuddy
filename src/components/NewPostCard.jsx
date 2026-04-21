@@ -55,7 +55,11 @@ export default function NewPostCard({ onPost, isAuthenticated, onAuthRequired })
     }
 
     setError("");
-    onPost?.(body, course);
+    onPost?.(body, course, {
+      createNewGroup,
+      newGroupName: newGroupName.trim(),
+      selectedGroupId,
+    });
     reset();
   }
 
