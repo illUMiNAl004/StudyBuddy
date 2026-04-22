@@ -43,7 +43,7 @@ function mapRow(row, profileMap, memberGroupIds, pendingGroupIds) {
     actionLabel = 'Joined ✓';
     actionStyle = 'joined';
   } else if (hasPending) {
-    actionLabel = 'Pending...';
+    actionLabel = 'Waiting for approval';
     actionStyle = 'pending';
   } else if (requiresInvite) {
     actionLabel = 'Request to Join →';
@@ -342,7 +342,7 @@ export default function Home() {
       setPosts((prev) =>
         prev.map((p) =>
           p.id === postId
-            ? { ...p, hasPending: true, actionLabel: 'Pending...', actionStyle: 'pending' }
+            ? { ...p, hasPending: true, actionLabel: 'Waiting for approval', actionStyle: 'pending' }
             : p
         )
       );

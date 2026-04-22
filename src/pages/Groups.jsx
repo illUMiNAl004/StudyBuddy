@@ -66,7 +66,7 @@ function getEventTime(start, end) {
   return day + ' ' + start_str + '-' + end_str
 }
 
-function GroupTools({ active_tool, on_tool_change, selected_group, all_groups, user_id, on_approve, approving_id }) {
+function GroupTools({ active_tool, on_tool_change, selected_group, all_groups, user_id, on_approve, approving_id, on_reject, rejecting_id }) {
   let title = selected_group
     ? selected_group.name + ' • ' + selected_group.courseName
     : 'All your groups'
@@ -140,17 +140,29 @@ function GroupTools({ active_tool, on_tool_change, selected_group, all_groups, u
             ))}
             {items.length > 0 && active_tool === 'team' && items.map((item, i) => {
               if (item.type === 'request') {
+                var is_creator = selected_group?.creatorId === user_id
                 return (
                   <div key={i} className="groups-tools-item groups-tools-item-request">
-                    <span>{item.requesterName} requested to join</span>
-                    {selected_group?.creatorId === user_id && (
-                      <button
-                        type="button"
-                        onClick={() => on_approve(selected_group.id, item.id, item.requesterName)}
-                        disabled={approving_id === item.id}
-                      >
-                        {approving_id === item.id ? 'Approving...' : 'Approve'}
-                      </button>
+                    <span style={{ flex: 1 }}>{item.requesterName} wants to join</span>
+                    {is_creator && (
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button
+                          type="button"
+                          style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '8px', padding: '3px 10px', cursor: 'pointer', fontSize: '0.78rem' }}
+                          onClick={() => on_approve(selected_group.id, item.id, item.requesterName)}
+                          disabled={approving_id === item.id || rejecting_id === item.id}
+                        >
+                          {approving_id === item.id ? '...' : 'Approve'}
+                        </button>
+                        <button
+                          type="button"
+                          style={{ background: '#f5f5f5', color: '#888', border: '1px solid #ddd', borderRadius: '8px', padding: '3px 10px', cursor: 'pointer', fontSize: '0.78rem' }}
+                          onClick={() => on_reject(selected_group.id, item.id)}
+                          disabled={approving_id === item.id || rejecting_id === item.id}
+                        >
+                          {rejecting_id === item.id ? '...' : 'Reject'}
+                        </button>
+                      </div>
                     )}
                   </div>
                 )
@@ -190,6 +202,7 @@ export default function Groups() {
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
   const [approving_id, setApprovingId] = useState(null)
+  const [rejecting_id, setRejectingId] = useState(null)
 
   // Only show mock data when there's no logged-in user at all
   let use_mock = !user
@@ -368,7 +381,7 @@ export default function Groups() {
     load()
 
     // Re-fetch when the user is added to a new group (e.g. just created one)
-    const subscription = supabase
+    const membership_sub = supabase
       .channel('user_in_group_changes')
       .on(
         'postgres_changes',
@@ -377,7 +390,21 @@ export default function Groups() {
       )
       .subscribe()
 
-    return () => { supabase.removeChannel(subscription) }
+    // Re-fetch when someone sends a join request to any of the user's groups
+    // so the creator sees it live in the Team tab without having to refresh
+    const join_req_sub = supabase
+      .channel('join_request_changes')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'group_join_requests' },
+        () => load()
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(membership_sub)
+      supabase.removeChannel(join_req_sub)
+    }
   }, [user])
 
   useEffect(() => {
@@ -464,6 +491,50 @@ export default function Groups() {
       setErr(e.message || 'Could not approve this request right now.')
     } finally {
       setApprovingId(null)
+    }
+  }
+
+  async function rejectRequest(group_id, req_id) {
+    if (use_mock) {
+      setGroups(prev => {
+        let src = prev.length > 0 ? prev : [mock_for_user]
+        let out = []
+        for (let g of src) {
+          if (g.id === group_id) {
+            out.push({ ...g, pendingJoinRequests: g.pendingJoinRequests.filter(r => r.id !== req_id) })
+          } else {
+            out.push(g)
+          }
+        }
+        return out
+      })
+      return
+    }
+
+    setRejectingId(req_id)
+    try {
+      const { error } = await supabase
+        .from('group_join_requests')
+        .update({ status: 'rejected' })
+        .eq('id', req_id)
+
+      if (error) throw error
+
+      setGroups(prev => {
+        let out = []
+        for (let g of prev) {
+          if (g.id === group_id) {
+            out.push({ ...g, pendingJoinRequests: g.pendingJoinRequests.filter(r => r.id !== req_id) })
+          } else {
+            out.push(g)
+          }
+        }
+        return out
+      })
+    } catch (e) {
+      setErr(e.message || 'Could not reject this request right now.')
+    } finally {
+      setRejectingId(null)
     }
   }
 
@@ -557,6 +628,8 @@ export default function Groups() {
           user_id={user?.id}
           on_approve={approveRequest}
           approving_id={approving_id}
+          on_reject={rejectRequest}
+          rejecting_id={rejecting_id}
         />
       </div>
     </div>
