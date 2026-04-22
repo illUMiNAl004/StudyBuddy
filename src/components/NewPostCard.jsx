@@ -14,6 +14,7 @@ export default function NewPostCard({ onPost, isAuthenticated, onAuthRequired })
   const [createNewGroup, setCreateNewGroup] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [selectedGroupId, setSelectedGroupId] = useState("");
+  const [isPrivateGroup, setIsPrivateGroup] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -37,6 +38,7 @@ export default function NewPostCard({ onPost, isAuthenticated, onAuthRequired })
     setCreateNewGroup(false);
     setNewGroupName("");
     setSelectedGroupId("");
+    setIsPrivateGroup(false);
   }
 
   function submit() {
@@ -69,6 +71,7 @@ export default function NewPostCard({ onPost, isAuthenticated, onAuthRequired })
       createNewGroup,
       newGroupName: newGroupName.trim(),
       selectedGroupId,
+      isPrivateGroup,
     });
     reset();
   }
@@ -188,18 +191,58 @@ export default function NewPostCard({ onPost, isAuthenticated, onAuthRequired })
                 </button>
               </div>
 
-              {/* Conditional: New Group Name Input */}
+              {/* Conditional: New Group Name Input + privacy */}
               {createNewGroup && (
-                <div className="new-post-field" style={{ marginBottom: 0 }}>
-                  <label htmlFor="newGroupName">Group name</label>
-                  <input
-                    id="newGroupName"
-                    type="text"
-                    value={newGroupName}
-                    onChange={(e) => setNewGroupName(e.target.value)}
-                    placeholder="Add group name..."
-                    autoFocus
-                  />
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.55rem" }}>
+                  <div className="new-post-field" style={{ marginBottom: 0 }}>
+                    <label htmlFor="newGroupName">Group name</label>
+                    <input
+                      id="newGroupName"
+                      type="text"
+                      value={newGroupName}
+                      onChange={(e) => setNewGroupName(e.target.value)}
+                      placeholder="Add group name..."
+                      autoFocus
+                    />
+                  </div>
+
+                  {/* Public / Private toggle */}
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <span style={{ fontSize: "0.82rem", color: "var(--text-secondary, #666)", fontWeight: 500, userSelect: "none" }}>
+                      {isPrivateGroup ? "Private — approval required" : "Public — anyone can join"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsPrivateGroup((v) => !v)}
+                      aria-pressed={isPrivateGroup}
+                      title="Toggle group privacy"
+                      style={{
+                        position: "relative",
+                        width: "40px",
+                        height: "22px",
+                        borderRadius: "11px",
+                        border: "none",
+                        cursor: "pointer",
+                        background: isPrivateGroup ? "#e07b3a" : "var(--accent, #5a8a62)",
+                        transition: "background 0.2s ease",
+                        flexShrink: 0,
+                        padding: 0,
+                      }}
+                    >
+                      <span style={{
+                        position: "absolute",
+                        top: "3px",
+                        left: isPrivateGroup ? "21px" : "3px",
+                        width: "16px",
+                        height: "16px",
+                        borderRadius: "50%",
+                        background: "#fff",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                        transition: "left 0.2s ease",
+                        display: "block",
+                      }} />
+                    </button>
+                  </div>
                 </div>
               )}
 
