@@ -298,7 +298,7 @@ export default function Home() {
         group_id: GROUP_ID,
         course: course,
         description: body,
-        is_private: groupRequiresInvite,
+        is_private: false,
       }])
       .select();
 
