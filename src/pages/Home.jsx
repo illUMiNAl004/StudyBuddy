@@ -23,7 +23,7 @@ function mapRow(row) {
     id: row.id,
     userId: row.user_id,
     initial: (row.course || row.title)?.[0]?.toUpperCase() || '?',
-    name: row.profiles?.full_name || row.name || 'Student',
+    name: row.name || 'Student',
     course: row.course || row.title || 'General',
     time: timeAgo(row.created_at),
     avatarBg: '#e8f0eb',
@@ -57,6 +57,17 @@ export default function Home() {
         return;
       }
 
+      // Fetch profile names for all post authors
+      const userIds = [...new Set((data || []).map((r) => r.user_id).filter(Boolean))];
+      let nameMap = {};
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', userIds);
+        (profiles || []).forEach((p) => { nameMap[p.id] = p.full_name; });
+      }
+
       let likedPostIds = new Set();
       if (user) {
         const { data: likesData } = await supabase
@@ -68,7 +79,13 @@ export default function Home() {
         }
       }
 
-      setPosts(data.map((row) => ({ ...mapRow(row), likedByUser: likedPostIds.has(String(row.id)) })));
+      setPosts(
+        (data || []).map((row) => ({
+          ...mapRow(row),
+          name: nameMap[row.user_id] || 'Student',
+          likedByUser: likedPostIds.has(String(row.id)),
+        }))
+      );
     }
     fetchPosts();
   }, [user]);
@@ -150,45 +167,14 @@ export default function Home() {
     );
   }
 
-  async function handlePost(body, course, groupOptions = {}) {
-    const { createNewGroup, newGroupName, selectedGroupId } = groupOptions;
+  async function handlePost(body, course) {
+    const GROUP_ID = '23fad67b-51f1-4d6b-b88a-8acce722e063';
 
-    let groupId = selectedGroupId || '23fad67b-51f1-4d6b-b88a-8acce722e063';
-
-    // Step 1: If user wants a new group, create it first then grab its id
-    if (createNewGroup && newGroupName) {
-      const { data: groupData, error: groupError } = await supabase
-        .from('groups')
-        .insert([{
-          group_title: newGroupName,
-          creator_id: user.id,
-          requires_invite: false,
-        }])
-        .select('id')
-        .single();
-
-      if (groupError) {
-        console.error('Error creating group:', groupError);
-        return;
-      }
-
-      groupId = groupData.id;
-
-      // Add creator as a member so the group appears on their Groups page
-      const { error: memberError } = await supabase
-        .from('user_in_group')
-        .upsert([{ user_id: user.id, group_id: groupId }], { onConflict: 'group_id,user_id', ignoreDuplicates: true });
-      if (memberError) {
-        console.error('Error adding creator to user_in_group:', memberError);
-      }
-    }
-
-    // Step 2: Create the post linked to the group
     const { data, error } = await supabase
       .from('posts')
       .insert([{
-        user_id: user.id,
-        group_id: groupId,
+        user_id: user?.id || '452e8572-d91c-4303-9aac-45f545fbca3d',
+        group_id: GROUP_ID,
         course: course,
         description: body,
         is_private: false,
@@ -200,16 +186,19 @@ export default function Home() {
       return;
     }
 
-    // Step 3: If we just made a new group, backfill the post_id onto it
-    if (createNewGroup && data?.[0]?.id) {
-      await supabase
-        .from('groups')
-        .update({ post_id: data[0].id })
-        .eq('id', groupId);
-    }
-
     if (data && data.length > 0) {
-      setPosts(prev => [mapRow(data[0]), ...prev]);
+      // Fetch profile name so the new post shows the correct author immediately
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .single();
+
+      const newPost = {
+        ...mapRow(data[0]),
+        name: profileData?.full_name || user?.email || 'Student',
+      };
+      setPosts(prev => [newPost, ...prev]);
     }
   }
 
