@@ -36,12 +36,28 @@ export default function Notes() {
   const [uploadErrorMsg, setUploadErrorMsg] = useState('');
   const [deletingId, setDeletingId] = useState(null);
   const [noteToDelete, setNoteToDelete] = useState(null);
+  const [uploadVisibility, setUploadVisibility] = useState('public');
+  const [myGroups, setMyGroups] = useState([]);
 
   const fileInputRef = useRef();
 
   useEffect(() => {
     fetchNotes();
-  }, []);
+    if (user) {
+      fetchMyGroups();
+    }
+  }, [user]);
+
+  async function fetchMyGroups() {
+    const { data, error } = await supabase
+      .from('user_in_group')
+      .select('group_id, groups(group_title)')
+      .eq('user_id', user.id);
+    
+    if (!error && data) {
+      setMyGroups(data.map(d => ({ id: d.group_id, title: d.groups?.group_title || 'Unknown Group' })));
+    }
+  }
 
   async function fetchNotes() {
     // Note: Temporary '*' select bypasses the PostgREST relation error for instantaneous feedback!
@@ -105,6 +121,9 @@ export default function Notes() {
           uploadedUrls.push(publicUrl);
       }
 
+      const isPrivate = uploadVisibility === 'private';
+      const groupId = (uploadVisibility !== 'public' && uploadVisibility !== 'private') ? uploadVisibility : null;
+
       // 4. Registry Block: Stamp the Array natively!
       const { error: dbError } = await supabase
         .from('notes')
@@ -113,7 +132,9 @@ export default function Notes() {
           picture_urls: uploadedUrls, // Using the new TEXT[] architecture!
           major: profileData.major,
           title: uploadTitle.trim(),
-          description: uploadDescription.trim() || null
+          description: uploadDescription.trim() || null,
+          is_private: isPrivate,
+          group_id: groupId
         }]);
 
       if (dbError) throw dbError;
@@ -135,6 +156,7 @@ export default function Notes() {
       setUploadTitle('');
       setUploadDescription('');
       setUploadFiles([]);
+      setUploadVisibility('public');
       setUploadErrorMsg('');
       if (fileInputRef.current) fileInputRef.current.value = null;
   }
@@ -155,7 +177,9 @@ export default function Notes() {
   }
 
   const filteredNotes = notes.filter(note => {
-    if (activeTab === 'my' && note.author_id !== user?.id) return false;
+    if (activeTab === 'private' && (note.author_id !== user?.id || note.is_private !== true)) return false;
+    if (activeTab === 'all' && (note.is_private === true || note.group_id !== null)) return false;
+    if (activeTab === 'group' && note.group_id === null) return false;
     
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -200,14 +224,24 @@ export default function Notes() {
               All Notes
             </button>
             <button 
-              onClick={() => setActiveTab('my')}
+              onClick={() => setActiveTab('private')}
               style={{
-                background: activeTab === 'my' ? 'var(--accent)' : 'transparent',
-                color: activeTab === 'my' ? '#fff' : 'var(--text)',
+                background: activeTab === 'private' ? 'var(--accent)' : 'transparent',
+                color: activeTab === 'private' ? '#fff' : 'var(--text)',
                 border: 'none', borderRadius: '16px', padding: '6px 16px', cursor: 'pointer', fontWeight: 600, transition: '0.2s'
               }}
             >
-              My Notes
+              Private Notes
+            </button>
+            <button 
+              onClick={() => setActiveTab('group')}
+              style={{
+                background: activeTab === 'group' ? 'var(--accent)' : 'transparent',
+                color: activeTab === 'group' ? '#fff' : 'var(--text)',
+                border: 'none', borderRadius: '16px', padding: '6px 16px', cursor: 'pointer', fontWeight: 600, transition: '0.2s'
+              }}
+            >
+              Group Notes
             </button>
           </div>
 
@@ -253,8 +287,20 @@ export default function Notes() {
                   ))}
               </div>
               
-              <div style={{ position: 'absolute', top: '12px', right: '12px', background: 'rgba(0,0,0,0.6)', color: '#fff', padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', pointerEvents: 'none' }}>
-                {note.major}
+              <div style={{ position: 'absolute', top: '12px', right: '12px', display: 'flex', gap: '8px', pointerEvents: 'none' }}>
+                {note.is_private && (
+                  <div style={{ background: '#d32f2f', color: '#fff', padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' }}>
+                    Private
+                  </div>
+                )}
+                {note.group_id && (
+                  <div style={{ background: '#1976d2', color: '#fff', padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' }}>
+                    Group
+                  </div>
+                )}
+                <div style={{ background: 'rgba(0,0,0,0.6)', color: '#fff', padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' }}>
+                  {note.major}
+                </div>
               </div>
 
               {note.picture_urls?.length > 1 && (
@@ -363,6 +409,21 @@ export default function Notes() {
                   onChange={e => setUploadTitle(e.target.value)}
                   style={{ padding: '12px', borderRadius: '10px', border: '1px solid var(--border)', background: 'var(--bg)', font: 'inherit' }}
                 />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Visibility / Group</label>
+                <select
+                  value={uploadVisibility}
+                  onChange={(e) => setUploadVisibility(e.target.value)}
+                  style={{ padding: '12px', borderRadius: '10px', border: '1px solid var(--border)', background: 'var(--bg)', font: 'inherit', outline: 'none' }}
+                >
+                  <option value="public">Public (All Notes)</option>
+                  <option value="private">Private (Only Me)</option>
+                  {myGroups.map(g => (
+                    <option key={g.id} value={g.id}>Group: {g.title}</option>
+                  ))}
+                </select>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
