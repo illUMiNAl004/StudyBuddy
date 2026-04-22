@@ -93,7 +93,7 @@ export default function Home() {
   async function loadAllPosts() {
     const { data, error } = await supabase
       .from('posts')
-      .select('*, groups(id, group_title, requires_invite)')
+      .select('*, groups!posts_group_id_fkey(id, group_title, requires_invite)')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -330,8 +330,23 @@ export default function Home() {
     if (!post || !post.groupId) return;
     if (post.isMember || post.hasPending) return;
 
-    if (post.requiresInvite) {
-      // private group — send a join request
+    // always fetch the group fresh — don't trust the joined data since RLS
+    // can cause the nested groups object to come back null for some users
+    var { data: grpData, error: grpErr } = await supabase
+      .from('groups')
+      .select('requires_invite')
+      .eq('id', post.groupId)
+      .single();
+
+    if (grpErr || !grpData) {
+      console.error('Could not load group info:', grpErr);
+      return;
+    }
+
+    var needsApproval = grpData.requires_invite === true;
+
+    if (needsApproval) {
+      // private group — send a join request, owner has to approve
       var { error: reqErr } = await supabase
         .from('group_join_requests')
         .insert([{ group_id: post.groupId, requester_id: user.id }]);
@@ -347,14 +362,30 @@ export default function Home() {
         )
       );
     } else {
-      // public group — join directly
+      // public group — add directly to user_in_group
       var { error: joinErr } = await supabase
         .from('user_in_group')
         .insert([{ user_id: user.id, group_id: post.groupId }]);
+
       if (joinErr) {
-        console.error('Error joining group:', joinErr);
+        // RLS blocked it — group actually requires approval, fall back to join request
+        var { error: reqErr2 } = await supabase
+          .from('group_join_requests')
+          .insert([{ group_id: post.groupId, requester_id: user.id }]);
+        if (reqErr2) {
+          console.error('Error sending join request (fallback):', reqErr2);
+          return;
+        }
+        setPosts((prev) =>
+          prev.map((p) =>
+            p.id === postId
+              ? { ...p, hasPending: true, actionLabel: 'Waiting for approval', actionStyle: 'pending' }
+              : p
+          )
+        );
         return;
       }
+
       setPosts((prev) =>
         prev.map((p) =>
           p.id === postId
