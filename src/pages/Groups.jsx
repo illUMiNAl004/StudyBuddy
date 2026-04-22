@@ -191,7 +191,8 @@ export default function Groups() {
   const [err, setErr] = useState('')
   const [approving_id, setApprovingId] = useState(null)
 
-  let use_mock = !loading && groups.length === 0
+  // Only show mock data when there's no logged-in user at all
+  let use_mock = !user
   let mock_for_user = { ...mock_group, creatorId: user?.id || mock_group.creatorId }
 
   let groups_list = use_mock ? [mock_for_user] : groups
@@ -205,12 +206,10 @@ export default function Groups() {
     }
   }
 
-  useEffect(() => {
+  async function load() {
     if (!user) return
-
-    async function load() {
-      setLoading(true)
-      setErr('')
+    setLoading(true)
+    setErr('')
 
       try {
         const { data: memberships, error: e1 } = await supabase
@@ -249,7 +248,7 @@ export default function Groups() {
 
         const { data: posts_data, error: e4 } = await supabase
           .from('posts')
-          .select('id, group_id, user_id, title, description, created_at')
+          .select('id, group_id, user_id, description, created_at')
           .in('group_id', group_ids)
           .order('created_at', { ascending: false })
 
@@ -305,7 +304,7 @@ export default function Groups() {
         let posts_by_group = {}
         for (let post of (posts_data || [])) {
           if (!posts_by_group[post.group_id]) posts_by_group[post.group_id] = []
-          let body = post.description?.trim() ? post.title + ' — ' + post.description : post.title
+          let body = post.description?.trim() || 'No content'
           posts_by_group[post.group_id].push({
             id: post.id,
             author: name_map[post.user_id] || 'Member',
@@ -361,9 +360,24 @@ export default function Groups() {
       } finally {
         setLoading(false)
       }
-    }
+  }
+
+  useEffect(() => {
+    if (!user) return
 
     load()
+
+    // Re-fetch when the user is added to a new group (e.g. just created one)
+    const subscription = supabase
+      .channel('user_in_group_changes')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'user_in_group', filter: `user_id=eq.${user.id}` },
+        () => load()
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(subscription) }
   }, [user])
 
   useEffect(() => {
