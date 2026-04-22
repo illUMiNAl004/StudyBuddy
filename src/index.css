@@ -555,6 +555,29 @@ nav {
 
 .react-btn.join:hover { opacity: 0.88; }
 
+.react-btn.joined {
+ margin-left: auto;
+ background: transparent;
+ color: var(--accent);
+ border-color: var(--accent);
+ cursor: default;
+ opacity: 0.75;
+}
+
+.react-btn.joined:hover { opacity: 0.75; border-color: var(--accent); color: var(--accent); }
+
+.react-btn.pending {
+ margin-left: auto;
+ background: #f3f3f3;
+ color: #999;
+ border-color: #ddd;
+ cursor: default;
+}
+
+.react-btn.pending:hover { border-color: #ddd; color: #999; }
+
+.react-btn:disabled { cursor: default; pointer-events: none; }
+
 /* ── AUTH PAGES & BUTTONS ── */
 
 .auth-header {
