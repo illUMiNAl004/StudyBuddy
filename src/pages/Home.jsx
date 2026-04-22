@@ -177,7 +177,7 @@ export default function Home() {
       // Add creator as a member so the group appears on their Groups page
       const { error: memberError } = await supabase
         .from('user_in_group')
-        .insert([{ user_id: user.id, group_id: groupId }]);
+        .upsert([{ user_id: user.id, group_id: groupId }], { onConflict: 'group_id,user_id', ignoreDuplicates: true });
       if (memberError) {
         console.error('Error adding creator to user_in_group:', memberError);
       }

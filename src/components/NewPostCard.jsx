@@ -1,23 +1,33 @@
-import { useState } from "react";
-
-// Mock: replace with real data from your auth/groups context
-const USER_GROUPS = [
-  { id: "1", name: "CS Study Squad" },
-  { id: "2", name: "Bio Lab Partners" },
-  { id: "3", name: "Calc Study Group" },
-  { id: "4", name: "Econ Discussion" },
-];
+import { useState, useEffect } from "react";
+import supabase from "../../Supabase_Config/supabaseClient";
+import { useAuth } from "../context/AuthContext";
 
 export default function NewPostCard({ onPost, isAuthenticated, onAuthRequired }) {
+  const { user } = useAuth();
   const [expanded, setExpanded] = useState(false);
   const [courseInput, setCourseInput] = useState("");
   const [postInput, setPostInput] = useState("");
   const [error, setError] = useState("");
+  const [userGroups, setUserGroups] = useState([]);
 
   // Group toggle state
   const [createNewGroup, setCreateNewGroup] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [selectedGroupId, setSelectedGroupId] = useState("");
+
+  useEffect(() => {
+    if (!user) return;
+    async function fetchUserGroups() {
+      const { data, error } = await supabase
+        .from('user_in_group')
+        .select('group_id, groups(id, group_title)')
+        .eq('user_id', user.id);
+      if (!error && data) {
+        setUserGroups(data.map(row => ({ id: row.groups.id, name: row.groups.group_title })));
+      }
+    }
+    fetchUserGroups();
+  }, [user]);
 
   function reset() {
     setExpanded(false);
@@ -220,7 +230,7 @@ export default function NewPostCard({ onPost, isAuthenticated, onAuthRequired })
                       onBlur={(e) => e.target.style.borderColor = "var(--border, #dde3df)"}
                     >
                       <option value="" disabled>Select a group...</option>
-                      {USER_GROUPS.map((g) => (
+                      {userGroups.map((g) => (
                         <option key={g.id} value={g.id}>{g.name}</option>
                       ))}
                     </select>
