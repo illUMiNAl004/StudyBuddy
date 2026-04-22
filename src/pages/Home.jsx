@@ -294,8 +294,8 @@ export default function Home() {
     const { data, error } = await supabase
       .from('posts')
       .insert([{
-        user_id: user.id,
-        group_id: groupId,
+        user_id: user?.id || '452e8572-d91c-4303-9aac-45f545fbca3d',
+        group_id: GROUP_ID,
         course: course,
         description: body,
         is_private: false,
