@@ -203,6 +203,7 @@ export default function Groups() {
   const [err, setErr] = useState('')
   const [approving_id, setApprovingId] = useState(null)
   const [rejecting_id, setRejectingId] = useState(null)
+  const [groupToLeave, setGroupToLeave] = useState(null)
 
   // Only show mock data when there's no logged-in user at all
   let use_mock = !user
@@ -538,6 +539,30 @@ export default function Groups() {
     }
   }
 
+  async function leaveGroup(group_id) {
+    if (use_mock) {
+      setGroups(prev => prev.filter(g => g.id !== group_id))
+      setSelectedId(null)
+      return
+    }
+
+    try {
+      setErr('')
+      const { error } = await supabase
+        .from('user_in_group')
+        .delete()
+        .eq('group_id', group_id)
+        .eq('user_id', user.id)
+
+      if (error) throw error
+
+      setGroups(prev => prev.filter(g => g.id !== group_id))
+      if (selected_id === group_id) setSelectedId(null)
+    } catch (e) {
+      setErr(e.message || 'Could not leave group. Are you the creator? (Creators cannot leave directly right now)')
+    }
+  }
+
   return (
     <div className="page groups-page">
       <div className="groups-layout">
@@ -566,12 +591,25 @@ export default function Groups() {
             </>
           ) : (
             <>
-              <div className="groups-heading groups-heading-detail">
-                <button className="groups-back" type="button" onClick={() => setSelectedId(null)}>
-                  ← Back to groups
-                </button>
-                <h1>{selected.name}</h1>
-                <p>{selected.courseName} • Group feed</p>
+              <div className="groups-heading groups-heading-detail" style={{ position: 'relative' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <button className="groups-back" type="button" onClick={() => setSelectedId(null)}>
+                      ← Back to groups
+                    </button>
+                    <h1>{selected.name}</h1>
+                    <p>{selected.courseName} • Group feed</p>
+                  </div>
+                  {selected.creatorId !== user?.id && (
+                    <button 
+                      type="button" 
+                      onClick={() => setGroupToLeave(selected.id)}
+                      style={{ background: '#ffebee', color: '#d32f2f', border: '1px solid #ffcdd2', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: '500', transition: 'all 0.2s', marginTop: '8px' }}
+                    >
+                      Leave Group
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="groups-feed">
@@ -632,6 +670,37 @@ export default function Groups() {
           rejecting_id={rejecting_id}
         />
       </div>
+      
+      {groupToLeave && (
+        <div className="auth-prompt-backdrop" onClick={() => setGroupToLeave(null)}>
+          <div className="auth-prompt-card" onClick={(event) => event.stopPropagation()}>
+            <button type="button" className="auth-prompt-close" onClick={() => setGroupToLeave(null)} aria-label="Close">
+              ×
+            </button>
+            <div className="auth-prompt-badge">Leave Group</div>
+            <h3 style={{ marginTop: '0.5rem' }}>Are you sure?</h3>
+            <p style={{ marginTop: '0.5rem', color: 'var(--muted)' }}>Are you sure you want to leave this group? You will lose access to its feed, notes, and calendar.</p>
+            <div className="auth-prompt-actions">
+              <button 
+                type="button"
+                className="auth-prompt-primary" 
+                style={{ background: '#d32f2f', color: '#fff', border: 'none', cursor: 'pointer' }} 
+                onClick={() => { leaveGroup(groupToLeave); setGroupToLeave(null); }}
+              >
+                Yes, leave group
+              </button>
+              <button 
+                type="button"
+                className="auth-prompt-secondary" 
+                style={{ cursor: 'pointer', border: '1px solid var(--border)' }} 
+                onClick={() => setGroupToLeave(null)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
