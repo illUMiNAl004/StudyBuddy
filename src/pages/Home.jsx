@@ -18,9 +18,9 @@ function timeAgo(dateString) {
   return `${days}d ago`;
 }
 
-function mapRow(row, profileMap, memberGroupIds, pendingGroupIds) {
+function mapRow(row, profileMap, memberGroupIds, pendingGroupIds, groupMap) {
   var gid = row.group_id || null;
-  var groupInfo = row.groups || null;
+  var groupInfo = (groupMap && gid) ? groupMap[gid] : (row.groups || null);
   var requiresInvite = groupInfo ? groupInfo.requires_invite : false;
 
   var isMember = false;
@@ -93,7 +93,7 @@ export default function Home() {
   async function loadAllPosts() {
     const { data, error } = await supabase
       .from('posts')
-      .select('*, groups!posts_group_id_fkey(id, group_title, requires_invite)')
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -101,13 +101,14 @@ export default function Home() {
       return;
     }
 
-    // pull out unique user ids so we can batch-fetch profile names
+    // pull out unique user ids and group ids for batch fetching
     var seenIds = [];
+    var seenGroupIds = [];
     for (var i = 0; i < data.length; i++) {
       var uid = data[i].user_id;
-      if (uid && !seenIds.includes(uid)) {
-        seenIds.push(uid);
-      }
+      if (uid && !seenIds.includes(uid)) seenIds.push(uid);
+      var gid = data[i].group_id;
+      if (gid && !seenGroupIds.includes(gid)) seenGroupIds.push(gid);
     }
 
     var pmap = {};
@@ -119,6 +120,20 @@ export default function Home() {
       if (profileRows) {
         for (var j = 0; j < profileRows.length; j++) {
           pmap[profileRows[j].id] = profileRows[j].full_name;
+        }
+      }
+    }
+
+    // fetch group info separately to avoid FK ambiguity between posts↔groups
+    var gmap = {};
+    if (seenGroupIds.length > 0) {
+      var { data: groupRows } = await supabase
+        .from('groups')
+        .select('id, group_title, requires_invite')
+        .in('id', seenGroupIds);
+      if (groupRows) {
+        for (var g = 0; g < groupRows.length; g++) {
+          gmap[groupRows[g].id] = groupRows[g];
         }
       }
     }
@@ -164,7 +179,7 @@ export default function Home() {
     for (var p = 0; p < data.length; p++) {
       var row = data[p];
       mapped.push({
-        ...mapRow(row, pmap, memberSet, pendingSet),
+        ...mapRow(row, pmap, memberSet, pendingSet, gmap),
         likedByUser: likedSet.has(String(row.id)),
       });
     }
