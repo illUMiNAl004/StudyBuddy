@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import supabase from '../../Supabase_Config/supabaseClient';
 import { useAuth } from '../context/AuthContext';
+import PasswordStrengthComponent from '../components/PasswordStrengthComponent';
 
 export default function Register() {
   const [fullName, setFullName] = useState('');
@@ -9,6 +10,7 @@ export default function Register() {
   const [major, setMajor] = useState('');
   const [classYear, setClassYear] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordStrength, setPasswordStrength] = useState({ level: 0, isValid: false });
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
   
@@ -24,6 +26,11 @@ export default function Register() {
   const handleRegister = async (e) => {
     e.preventDefault();
     setErrorMsg('');
+
+    if (!passwordStrength.isValid) {
+      setErrorMsg('Password does not meet all required criteria.');
+      return;
+    }
 
     if (!email.endsWith('@umass.edu')) {
       setErrorMsg('Registration is currently restricted to @umass.edu emails.');
@@ -132,9 +139,13 @@ export default function Register() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
+              <PasswordStrengthComponent 
+                password={password} 
+                onStrengthChange={setPasswordStrength}
+              />
             </div>
             
-            <button type="submit" disabled={loading}>
+            <button type="submit" disabled={loading || !passwordStrength.isValid}>
               {loading ? 'Creating Account...' : 'Register'}
             </button>
           </form>

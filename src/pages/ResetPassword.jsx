@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import supabase from '../../Supabase_Config/supabaseClient'
+import PasswordStrengthComponent from '../components/PasswordStrengthComponent'
 
 export default function ResetPassword() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [passwordStrength, setPasswordStrength] = useState({ level: 0, isValid: false })
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
@@ -51,8 +53,8 @@ export default function ResetPassword() {
     event.preventDefault()
     setErrorMsg('')
 
-    if (password.length < 8) {
-      setErrorMsg('Password must be at least 8 characters long.')
+    if (!passwordStrength.isValid) {
+      setErrorMsg('Password does not meet all required criteria.')
       return
     }
 
@@ -109,8 +111,12 @@ export default function ResetPassword() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="At least 8 characters"
+                  placeholder="••••••••"
                   required
+                />
+                <PasswordStrengthComponent 
+                  password={password} 
+                  onStrengthChange={setPasswordStrength}
                 />
               </div>
 
@@ -125,7 +131,7 @@ export default function ResetPassword() {
                 />
               </div>
 
-              <button type="submit" className="btn-post" disabled={loading}>
+              <button type="submit" className="btn-post" disabled={loading || !passwordStrength.isValid}>
                 {loading ? 'Updating...' : 'Update password'}
               </button>
               <Link to="/login" className="forgot-password-link">
