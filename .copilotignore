@@ -1,0 +1,12 @@
+# Ignore all course-related documentation and submissions
+Assignment_Submissions/
+*.pdf
+
+# Ignore specific project scrapers and large JSON session data
+lrc_scraping.py
+si_sessions.json
+
+# Standard web development ignores
+node_modules/
+dist/
+.env
