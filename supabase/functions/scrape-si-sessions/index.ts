@@ -1,12 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { DOMParser } from 'jsr:@b-fuze/deno-dom';
 
-// ---------------------------------------------------------------
-// CONFIGURATION — replace this with the real group UUID per course
-// once you have the mapping. The course name is the key.
-// ---------------------------------------------------------------
-const PLACEHOLDER_GROUP_ID = '00000000-0000-0000-0000-000000000000';
-
 const CURRENT_YEAR = new Date().getFullYear();
 
 
@@ -77,9 +71,15 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { course } = await req.json();
+    const { course, user_id } = await req.json();
     if (!course) {
       return new Response(JSON.stringify({ error: 'Missing required field: course' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    if (!user_id) {
+      return new Response(JSON.stringify({ error: 'Missing required field: user_id' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
@@ -129,8 +129,6 @@ Deno.serve(async (req) => {
         if (!courseName || courseName.toLowerCase() === 'course') continue;
         if (courseName.toLowerCase() !== course.toLowerCase()) continue;
 
-        const groupId = PLACEHOLDER_GROUP_ID;
-
         for (let i = 1; i < cells.length; i++) {
           const dayLabel = i < headers.length ? headers[i] : `Col_${i}`;
           const dateStr = dayLabel.slice(-5);
@@ -140,7 +138,7 @@ Deno.serve(async (req) => {
           for (const { room, startTime, endTime } of sessions) {
             rowsToInsert.push({
               id: crypto.randomUUID(),
-              group_id: groupId,
+              user_id: user_id,
               start_time: startTime,
               end_time: endTime,
               location: room,
