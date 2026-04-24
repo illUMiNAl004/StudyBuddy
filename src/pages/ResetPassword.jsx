@@ -13,6 +13,18 @@ export default function ResetPassword() {
   const [sessionReady, setSessionReady] = useState(false)
   const navigate = useNavigate()
 
+  // Field-level error tracking
+  const [fieldErrors, setFieldErrors] = useState({
+    password: '',
+    confirmPassword: ''
+  })
+
+  // Track which fields have been touched
+  const [touchedFields, setTouchedFields] = useState({
+    password: false,
+    confirmPassword: false
+  })
+
   useEffect(() => {
     // Supabase automatically parses the #access_token fragment from the URL
     // and fires PASSWORD_RECOVERY when it detects a recovery link was clicked.
@@ -49,9 +61,69 @@ export default function ResetPassword() {
     return () => subscription.unsubscribe()
   }, [])
 
+  // Validation helper functions
+  const validatePassword = (passwordValue) => {
+    if (!passwordValue) return 'New Password is required.'
+    if (!passwordStrength.isValid) return 'Password is too weak.'
+    return ''
+  }
+
+  const validateConfirmPassword = (confirmValue) => {
+    if (!confirmValue) return 'Confirm New Password is required.'
+    if (confirmValue !== password) return 'Passwords do not match.'
+    return ''
+  }
+
+  // Handle field blur to mark as touched and validate
+  const handleFieldBlur = (fieldName) => {
+    setTouchedFields(prev => ({ ...prev, [fieldName]: true }))
+    validateField(fieldName)
+  }
+
+  // Validate individual field
+  const validateField = (fieldName) => {
+    let error = ''
+
+    switch (fieldName) {
+      case 'password':
+        error = validatePassword(password)
+        break
+      case 'confirmPassword':
+        error = validateConfirmPassword(confirmPassword)
+        break
+      default:
+        break
+    }
+
+    setFieldErrors(prev => ({ ...prev, [fieldName]: error }))
+    return error
+  }
+
   async function handleResetPassword(event) {
     event.preventDefault()
     setErrorMsg('')
+
+    // Perform dirty check on all fields
+    const newTouchedFields = {
+      password: true,
+      confirmPassword: true
+    }
+    setTouchedFields(newTouchedFields)
+
+    // Validate all fields
+    const errors = {
+      password: validatePassword(password),
+      confirmPassword: validateConfirmPassword(confirmPassword)
+    }
+
+    setFieldErrors(errors)
+
+    // Check if any errors exist
+    const hasErrors = Object.values(errors).some(error => error !== '')
+    if (hasErrors) {
+      setErrorMsg('Please fix all errors before resetting your password.')
+      return
+    }
 
     if (!passwordStrength.isValid) {
       setErrorMsg('Password does not meet all required criteria.')
@@ -111,9 +183,19 @@ export default function ResetPassword() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onBlur={() => handleFieldBlur('password')}
                   placeholder="••••••••"
                   required
+                  style={{
+                    borderColor: touchedFields.password && fieldErrors.password ? '#d32f2f' : 'inherit',
+                    borderWidth: touchedFields.password && fieldErrors.password ? '2px' : '1px'
+                  }}
                 />
+                {touchedFields.password && fieldErrors.password && (
+                  <div style={{ color: '#d32f2f', fontSize: '0.85rem', marginTop: '4px' }}>
+                    {fieldErrors.password}
+                  </div>
+                )}
                 <PasswordStrengthComponent 
                   password={password} 
                   onStrengthChange={setPasswordStrength}
@@ -126,9 +208,19 @@ export default function ResetPassword() {
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
+                  onBlur={() => handleFieldBlur('confirmPassword')}
                   placeholder="Re-enter password"
                   required
+                  style={{
+                    borderColor: touchedFields.confirmPassword && fieldErrors.confirmPassword ? '#d32f2f' : 'inherit',
+                    borderWidth: touchedFields.confirmPassword && fieldErrors.confirmPassword ? '2px' : '1px'
+                  }}
                 />
+                {touchedFields.confirmPassword && fieldErrors.confirmPassword && (
+                  <div style={{ color: '#d32f2f', fontSize: '0.85rem', marginTop: '4px' }}>
+                    {fieldErrors.confirmPassword}
+                  </div>
+                )}
               </div>
 
               <button type="submit" className="btn-post" disabled={loading || !passwordStrength.isValid}>
