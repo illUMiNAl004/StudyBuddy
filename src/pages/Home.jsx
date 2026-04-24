@@ -18,12 +18,57 @@ function timeAgo(dateString) {
   return `${days}d ago`;
 }
 
-function mapRow(row) {
+function mapRow(row, profileMap, memberGroupIds, pendingGroupIds, groupMap) {
+  var gid = row.group_id || null;
+  var groupInfo = (groupMap && gid) ? groupMap[gid] : (row.groups || null);
+  var requiresInvite = groupInfo ? groupInfo.requires_invite : false;
+
+  var isMember = false;
+  var hasPending = false;
+
+  if (memberGroupIds && gid) {
+    isMember = memberGroupIds.has(gid);
+  }
+  if (pendingGroupIds && gid) {
+    hasPending = pendingGroupIds.has(gid);
+  }
+
+  var actionLabel = 'Join Group →';
+  var actionStyle = 'join';
+
+  if (!gid) {
+    actionLabel = 'Action →';
+    actionStyle = 'join';
+  } else if (isMember) {
+    actionLabel = 'Joined ✓';
+    actionStyle = 'joined';
+  } else if (hasPending) {
+    actionLabel = 'Waiting for approval';
+    actionStyle = 'pending';
+  } else if (requiresInvite) {
+    actionLabel = 'Request to Join →';
+    actionStyle = 'join';
+  } else {
+    actionLabel = 'Join Group →';
+    actionStyle = 'join';
+  }
+
+  var nameVal = 'Student';
+  if (profileMap && profileMap[row.user_id]) {
+    nameVal = profileMap[row.user_id];
+  } else if (row.profiles && row.profiles.full_name) {
+    nameVal = row.profiles.full_name;
+  }
+
   return {
     id: row.id,
     userId: row.user_id,
+    groupId: gid,
+    requiresInvite: requiresInvite,
+    isMember: isMember,
+    hasPending: hasPending,
     initial: (row.course || row.title)?.[0]?.toUpperCase() || '?',
-    name: row.profiles?.full_name || row.name || 'Student',
+    name: nameVal,
     course: row.course || row.title || 'General',
     time: timeAgo(row.created_at),
     avatarBg: '#e8f0eb',
@@ -31,8 +76,8 @@ function mapRow(row) {
     tagStyle: {},
     body: row.description,
     helpful: row.helpful ?? 0,
-    actionLabel: 'Action →',
-    actionStyle: 'join',
+    actionLabel: actionLabel,
+    actionStyle: actionStyle,
   };
 }
 
@@ -45,32 +90,104 @@ export default function Home() {
     setAuthPromptOpen(true);
   }
 
-  useEffect(() => {
-    async function fetchPosts() {
-      const { data, error } = await supabase
-        .from('posts')
-        .select('*')
-        .order('created_at', { ascending: false });
+  async function loadAllPosts() {
+    const { data, error } = await supabase
+      .from('posts')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching posts:', error);
-        return;
+    if (error) {
+      console.error('Error fetching posts:', error);
+      return;
+    }
+
+    // pull out unique user ids and group ids for batch fetching
+    var seenIds = [];
+    var seenGroupIds = [];
+    for (var i = 0; i < data.length; i++) {
+      var uid = data[i].user_id;
+      if (uid && !seenIds.includes(uid)) seenIds.push(uid);
+      var gid = data[i].group_id;
+      if (gid && !seenGroupIds.includes(gid)) seenGroupIds.push(gid);
+    }
+
+    var pmap = {};
+    if (seenIds.length > 0) {
+      var { data: profileRows } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', seenIds);
+      if (profileRows) {
+        for (var j = 0; j < profileRows.length; j++) {
+          pmap[profileRows[j].id] = profileRows[j].full_name;
+        }
       }
+    }
 
-      let likedPostIds = new Set();
-      if (user) {
-        const { data: likesData } = await supabase
-          .from('post_likes')
-          .select('post_id')
-          .eq('user_id', user.id);
-        if (likesData) {
-          likedPostIds = new Set(likesData.map((l) => String(l.post_id)));
+    // fetch group info separately to avoid FK ambiguity between posts↔groups
+    var gmap = {};
+    if (seenGroupIds.length > 0) {
+      var { data: groupRows } = await supabase
+        .from('groups')
+        .select('id, group_title, requires_invite')
+        .in('id', seenGroupIds);
+      if (groupRows) {
+        for (var g = 0; g < groupRows.length; g++) {
+          gmap[groupRows[g].id] = groupRows[g];
+        }
+      }
+    }
+
+    var memberSet = new Set();
+    var pendingSet = new Set();
+    var likedSet = new Set();
+
+    if (user) {
+      var { data: memberRows } = await supabase
+        .from('user_in_group')
+        .select('group_id')
+        .eq('user_id', user.id);
+      if (memberRows) {
+        for (var k = 0; k < memberRows.length; k++) {
+          memberSet.add(memberRows[k].group_id);
         }
       }
 
-      setPosts(data.map((row) => ({ ...mapRow(row), likedByUser: likedPostIds.has(String(row.id)) })));
+      var { data: reqRows } = await supabase
+        .from('group_join_requests')
+        .select('group_id')
+        .eq('requester_id', user.id)
+        .eq('status', 'pending');
+      if (reqRows) {
+        for (var m = 0; m < reqRows.length; m++) {
+          pendingSet.add(reqRows[m].group_id);
+        }
+      }
+
+      var { data: likesData } = await supabase
+        .from('post_likes')
+        .select('post_id')
+        .eq('user_id', user.id);
+      if (likesData) {
+        for (var n = 0; n < likesData.length; n++) {
+          likedSet.add(String(likesData[n].post_id));
+        }
+      }
     }
-    fetchPosts();
+
+    var mapped = [];
+    for (var p = 0; p < data.length; p++) {
+      var row = data[p];
+      mapped.push({
+        ...mapRow(row, pmap, memberSet, pendingSet, gmap),
+        likedByUser: likedSet.has(String(row.id)),
+      });
+    }
+    setPosts(mapped);
+  }
+
+  useEffect(() => {
+    loadAllPosts();
   }, [user]);
 
   async function handleDelete(postId) {
@@ -88,20 +205,18 @@ export default function Home() {
   }
 
   async function handleEdit(postId, updatedBody) {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('posts')
       .update({ description: updatedBody })
-      .eq('id', postId)
-      .select();
+      .eq('id', postId);
 
     if (error) {
       console.error('Error updating post:', error);
       return;
     }
 
-    if (data && data.length > 0) {
-      setPosts((prev) => prev.map((post) => post.id === postId ? mapRow(data[0]) : post));
-    }
+    // just swap out the body, keep everything else intact
+    setPosts((prev) => prev.map((post) => post.id === postId ? { ...post, body: updatedBody } : post));
   }
 
   async function handleLike(postId, liked) {
@@ -150,14 +265,54 @@ export default function Home() {
     );
   }
 
-  async function handlePost(body, course) {
+  async function handlePost(body, course, groupOptions = {}) {
+    const { createNewGroup, newGroupName, selectedGroupId, isPrivateGroup } = groupOptions;
+
+    var groupId = selectedGroupId || null;
+    var groupRequiresInvite = false;
+
+    // if making a brand new group, insert it first
+    if (createNewGroup && newGroupName) {
+      groupRequiresInvite = isPrivateGroup === true;
+
+      const { data: groupData, error: groupError } = await supabase
+        .from('groups')
+        .insert([{
+          group_title: newGroupName,
+          creator_id: user.id,
+          requires_invite: groupRequiresInvite,
+        }])
+        .select('id')
+        .single();
+
+      if (groupError) {
+        console.error('Error creating group:', groupError);
+        return;
+      }
+
+      groupId = groupData.id;
+
+      // make sure the creator is in user_in_group (trigger handles this but belt-and-suspenders)
+      const { error: memberError } = await supabase
+        .from('user_in_group')
+        .upsert([{ user_id: user.id, group_id: groupId }], { onConflict: 'group_id,user_id', ignoreDuplicates: true });
+      if (memberError) {
+        console.error('Error adding creator to user_in_group:', memberError);
+      }
+    }
+
+    if (!groupId) {
+      console.error('No group id, cannot post');
+      return;
+    }
+
     const { data, error } = await supabase
       .from('posts')
       .insert([{
-        user_id: user?.id || '452e8572-d91c-4303-9aac-45f545fbca3d',
+        user_id: user.id,
+        group_id: groupId,
         course: course,
         description: body,
-        group_name: '',
         is_private: false,
       }])
       .select();
@@ -167,8 +322,92 @@ export default function Home() {
       return;
     }
 
-    if (data && data.length > 0) {
-      setPosts(prev => [mapRow(data[0]), ...prev]);
+    // backfill post_id onto new group
+    if (createNewGroup && data?.[0]?.id) {
+      await supabase
+        .from('groups')
+        .update({ post_id: data[0].id })
+        .eq('id', groupId);
+    }
+
+    // do a full reload so the new post shows up with proper name + group info
+    await loadAllPosts();
+  }
+
+  async function handleJoinGroup(postId) {
+    if (!user) return;
+
+    var post = null;
+    for (var i = 0; i < posts.length; i++) {
+      if (posts[i].id === postId) { post = posts[i]; break; }
+    }
+
+    if (!post || !post.groupId) return;
+    if (post.isMember || post.hasPending) return;
+
+    // always fetch the group fresh — don't trust the joined data since RLS
+    // can cause the nested groups object to come back null for some users
+    var { data: grpData, error: grpErr } = await supabase
+      .from('groups')
+      .select('requires_invite')
+      .eq('id', post.groupId)
+      .single();
+
+    if (grpErr || !grpData) {
+      console.error('Could not load group info:', grpErr);
+      return;
+    }
+
+    var needsApproval = grpData.requires_invite === true;
+
+    if (needsApproval) {
+      // private group — send a join request, owner has to approve
+      var { error: reqErr } = await supabase
+        .from('group_join_requests')
+        .insert([{ group_id: post.groupId, requester_id: user.id }]);
+      if (reqErr) {
+        console.error('Error sending join request:', reqErr);
+        return;
+      }
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === postId
+            ? { ...p, hasPending: true, actionLabel: 'Waiting for approval', actionStyle: 'pending' }
+            : p
+        )
+      );
+    } else {
+      // public group — add directly to user_in_group
+      var { error: joinErr } = await supabase
+        .from('user_in_group')
+        .insert([{ user_id: user.id, group_id: post.groupId }]);
+
+      if (joinErr) {
+        // RLS blocked it — group actually requires approval, fall back to join request
+        var { error: reqErr2 } = await supabase
+          .from('group_join_requests')
+          .insert([{ group_id: post.groupId, requester_id: user.id }]);
+        if (reqErr2) {
+          console.error('Error sending join request (fallback):', reqErr2);
+          return;
+        }
+        setPosts((prev) =>
+          prev.map((p) =>
+            p.id === postId
+              ? { ...p, hasPending: true, actionLabel: 'Waiting for approval', actionStyle: 'pending' }
+              : p
+          )
+        );
+        return;
+      }
+
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === postId
+            ? { ...p, isMember: true, actionLabel: 'Joined ✓', actionStyle: 'joined' }
+            : p
+        )
+      );
     }
   }
 
@@ -203,6 +442,7 @@ export default function Home() {
               onDelete={handleDelete}
               onEdit={handleEdit}
               onLike={handleLike}
+              onAction={handleJoinGroup}
               onAuthRequired={openAuthPrompt}
               animationDelay={`${(i + 1) * 0.05}s`}
             />

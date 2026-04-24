@@ -59,6 +59,8 @@ export default function PostCard({ post, animationDelay = '0s', currentUserId, i
      onAuthRequired?.()
      return
    }
+   // nothing to do if already in group or request pending
+   if (post.isMember || post.hasPending) return
 
    onAction?.(post.id)
  }
@@ -144,7 +146,8 @@ export default function PostCard({ post, animationDelay = '0s', currentUserId, i
          className={`react-btn ${post.actionStyle || ''}`}
          style={post.actionBtnStyle || {}}
          type="button"
-        onClick={handleActionClick}
+         disabled={post.isMember || post.hasPending}
+         onClick={handleActionClick}
        >
          {post.actionLabel}
        </button>
