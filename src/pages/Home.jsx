@@ -91,10 +91,32 @@ export default function Home() {
   }
 
   async function loadAllPosts() {
-    const { data, error } = await supabase
+    // First, fetch the list of groups the user has already joined
+    var joinedGroupIds = [];
+    if (user) {
+      var { data: memberRows } = await supabase
+        .from('user_in_group')
+        .select('group_id')
+        .eq('user_id', user.id);
+      if (memberRows) {
+        for (var m = 0; m < memberRows.length; m++) {
+          joinedGroupIds.push(memberRows[m].group_id);
+        }
+      }
+    }
+
+    // Fetch posts, filtering out those from groups the user has already joined
+    var postsQuery = supabase
       .from('posts')
       .select('*')
       .order('created_at', { ascending: false });
+
+    // Apply the filter to exclude posts from joined groups
+    if (joinedGroupIds.length > 0) {
+      postsQuery = postsQuery.not('group_id', 'in', `(${joinedGroupIds.map(id => `"${id}"`).join(',')})`);
+    }
+
+    const { data, error } = await postsQuery;
 
     if (error) {
       console.error('Error fetching posts:', error);
@@ -138,29 +160,19 @@ export default function Home() {
       }
     }
 
-    var memberSet = new Set();
+    var memberSet = new Set(joinedGroupIds);
     var pendingSet = new Set();
     var likedSet = new Set();
 
     if (user) {
-      var { data: memberRows } = await supabase
-        .from('user_in_group')
-        .select('group_id')
-        .eq('user_id', user.id);
-      if (memberRows) {
-        for (var k = 0; k < memberRows.length; k++) {
-          memberSet.add(memberRows[k].group_id);
-        }
-      }
-
       var { data: reqRows } = await supabase
         .from('group_join_requests')
         .select('group_id')
         .eq('requester_id', user.id)
         .eq('status', 'pending');
       if (reqRows) {
-        for (var m = 0; m < reqRows.length; m++) {
-          pendingSet.add(reqRows[m].group_id);
+        for (var n = 0; n < reqRows.length; n++) {
+          pendingSet.add(reqRows[n].group_id);
         }
       }
 
@@ -169,8 +181,8 @@ export default function Home() {
         .select('post_id')
         .eq('user_id', user.id);
       if (likesData) {
-        for (var n = 0; n < likesData.length; n++) {
-          likedSet.add(String(likesData[n].post_id));
+        for (var o = 0; o < likesData.length; o++) {
+          likedSet.add(String(likesData[o].post_id));
         }
       }
     }
@@ -266,7 +278,7 @@ export default function Home() {
   }
 
   async function handlePost(body, course, groupOptions = {}) {
-    const { createNewGroup, newGroupName, selectedGroupId, isPrivateGroup } = groupOptions;
+    const { createNewGroup, newGroupName, selectedGroupId, isPrivateGroup, meetingDays = [], meetingTime = "" } = groupOptions;
 
     var groupId = selectedGroupId || null;
     var groupRequiresInvite = false;
@@ -281,6 +293,8 @@ export default function Home() {
           group_title: newGroupName,
           creator_id: user.id,
           requires_invite: groupRequiresInvite,
+          meeting_days: meetingDays && meetingDays.length > 0 ? meetingDays : [],
+          meeting_time: meetingTime || null,
         }])
         .select('id')
         .single();
@@ -401,13 +415,8 @@ export default function Home() {
         return;
       }
 
-      setPosts((prev) =>
-        prev.map((p) =>
-          p.id === postId
-            ? { ...p, isMember: true, actionLabel: 'Joined ✓', actionStyle: 'joined' }
-            : p
-        )
-      );
+      // Successfully joined a public group — remove the post from the feed immediately
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
     }
   }
 

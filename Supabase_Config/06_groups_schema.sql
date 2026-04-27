@@ -108,6 +108,18 @@ FOR EACH ROW
 WHEN (NEW.status = 'pending')
 EXECUTE PROCEDURE notify_group_creator_on_request();
 
+-- ==========================================
+-- ALTER TABLE to add meeting schedule fields (if not already added)
+-- ==========================================
+
+-- Add meeting_days column (array of day abbreviations: Mon, Tue, Wed, Thu, Fri, Sat, Sun)
+ALTER TABLE groups
+ADD COLUMN IF NOT EXISTS meeting_days TEXT[] DEFAULT '{}';
+
+-- Add meeting_time column (time in HH:MM format, e.g., '14:30')
+ALTER TABLE groups
+ADD COLUMN IF NOT EXISTS meeting_time TIME DEFAULT NULL;
+
 -- Trigger: Handle accepted/rejected join requests
 CREATE OR REPLACE FUNCTION process_resolved_join_request()
 RETURNS TRIGGER AS $$
