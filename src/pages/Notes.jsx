@@ -13,6 +13,14 @@ function timeAgo(dateString) {
   return `${days}d ago`;
 }
 
+function getFileType(url) {
+  if (!url) return 'image';
+  const extension = url.split('.').pop().toLowerCase().split('?')[0];
+  if (['pdf'].includes(extension)) return 'pdf';
+  if (['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx'].includes(extension)) return 'document';
+  return 'image';
+}
+
 export default function Notes() {
   const { user } = useAuth();
   
@@ -77,7 +85,7 @@ export default function Notes() {
   async function handleModalSubmit(e) {
     e.preventDefault();
     if (uploadFiles.length === 0) {
-        setUploadErrorMsg("Please select at least one image file to upload.");
+        setUploadErrorMsg("Please select at least one file to upload.");
         return;
     }
     if (!uploadTitle.trim()) {
@@ -275,16 +283,40 @@ export default function Notes() {
                   className="hide-scroll"
                   style={{ height: '220px', width: '100%', background: '#eee', display: 'flex', overflowX: 'auto', scrollSnapType: 'x mandatory', scrollBehavior: 'smooth' }}
               >
-                  {note.picture_urls?.map((url, i) => (
-                      <div key={i} style={{ flex: '0 0 100%', height: '100%', scrollSnapAlign: 'start', position: 'relative' }}>
-                          <img 
-                            src={url} 
-                            alt={`${note.title || "Study Note"} - Page ${i + 1}`} 
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                            onClick={() => setViewerState({ urls: note.picture_urls, index: i })} 
-                          />
+                  {note.picture_urls?.map((url, i) => {
+                      const fileType = getFileType(url);
+                      return (
+                      <div key={i} style={{ flex: '0 0 100%', height: '100%', scrollSnapAlign: 'start', position: 'relative' }} onClick={() => setViewerState({ urls: note.picture_urls, index: i })}>
+                          {fileType === 'image' ? (
+                            <img 
+                              src={url} 
+                              alt={`${note.title || "Study Note"} - Page ${i + 1}`} 
+                              style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }}
+                            />
+                          ) : (
+                            <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden', background: '#fff' }}>
+                              {fileType === 'pdf' ? (
+                                <iframe 
+                                  src={`${url}#toolbar=0&navpanes=0&scrollbar=0`} 
+                                  style={{ width: '100%', height: '100%', border: 'none', pointerEvents: 'none' }}
+                                  scrolling="no"
+                                  title={`PDF Preview ${i + 1}`}
+                                />
+                              ) : (
+                                <iframe 
+                                  src={`https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`} 
+                                  style={{ width: '100%', height: '100%', border: 'none', pointerEvents: 'none' }}
+                                  scrolling="no"
+                                  title={`Document Preview ${i + 1}`}
+                                />
+                              )}
+                              {/* Overlay to catch clicks and prevent iframe interaction */}
+                              <div style={{ position: 'absolute', inset: 0, zIndex: 10, cursor: 'pointer' }} />
+                            </div>
+                          )}
                       </div>
-                  ))}
+                      );
+                  })}
               </div>
               
               <div style={{ position: 'absolute', top: '12px', right: '12px', display: 'flex', gap: '8px', pointerEvents: 'none' }}>
@@ -438,10 +470,10 @@ export default function Notes() {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Attach Images *</label>
+                <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Attach Files *</label>
                 <input 
                   type="file" 
-                  accept="image/*"
+                  accept="image/*,.pdf,.doc,.docx,.ppt,.pptx"
                   multiple // Now supports highlighting 20 images at once!
                   onChange={e => setUploadFiles(Array.from(e.target.files))}
                   style={{ padding: '8px 0' }}
@@ -499,11 +531,33 @@ export default function Notes() {
           )}
 
           <div style={{ position: 'relative', maxWidth: '100%', maxHeight: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-            <img 
-              src={viewerState.urls[viewerState.index]} 
-              style={{ maxWidth: '100vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: '12px', boxShadow: '0 20px 40px rgba(0,0,0,0.6)' }}
-              onClick={(e) => e.stopPropagation()} 
-            />
+            {getFileType(viewerState.urls[viewerState.index]) === 'image' && (
+              <img 
+                src={viewerState.urls[viewerState.index]} 
+                style={{ maxWidth: '100vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: '12px', boxShadow: '0 20px 40px rgba(0,0,0,0.6)' }}
+                onClick={(e) => e.stopPropagation()} 
+              />
+            )}
+            {getFileType(viewerState.urls[viewerState.index]) === 'pdf' && (
+              <object 
+                data={viewerState.urls[viewerState.index]} 
+                type="application/pdf" 
+                style={{ width: '85vw', height: '90vh', borderRadius: '12px', background: '#fff', boxShadow: '0 20px 40px rgba(0,0,0,0.6)' }} 
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', textAlign: 'center' }}>
+                  <p>Your browser does not support inline PDFs.</p>
+                  <a href={viewerState.urls[viewerState.index]} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontWeight: 600 }}>Download the PDF</a>
+                </div>
+              </object>
+            )}
+            {getFileType(viewerState.urls[viewerState.index]) === 'document' && (
+              <iframe 
+                src={`https://docs.google.com/viewer?url=${encodeURIComponent(viewerState.urls[viewerState.index])}&embedded=true`} 
+                style={{ width: '85vw', height: '90vh', borderRadius: '12px', background: '#fff', border: 'none', boxShadow: '0 20px 40px rgba(0,0,0,0.6)' }} 
+                onClick={(e) => e.stopPropagation()}
+              />
+            )}
             {viewerState.urls.length > 1 && (
                <div style={{ position: 'absolute', bottom: '-40px', color: '#fff', fontSize: '0.9rem', fontWeight: 600, letterSpacing: '0.05em' }}>
                   {viewerState.index + 1} / {viewerState.urls.length}
