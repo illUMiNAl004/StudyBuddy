@@ -15,13 +15,15 @@ const MoreIcon = () => (
  </svg>
 )
 
-export default function PostCard({ post, animationDelay = '0s', currentUserId, initialLiked = false, onEdit, onDelete, onLike, isAuthenticated, onAuthRequired, onAction }) {
+export default function PostCard({ post, animationDelay = '0s', currentUserId, initialLiked = false, onEdit, onDelete, onLike, isAuthenticated, onAuthRequired, onAction, isExiting = false }) {
  const [helpful, setHelpful] = useState(post.helpful ?? 0)
  const [liked, setLiked] = useState(initialLiked)
  const [menuOpen, setMenuOpen] = useState(false)
  const [isEditing, setIsEditing] = useState(false)
  const [draftBody, setDraftBody] = useState(post.body)
+ const [joinPopped, setJoinPopped] = useState(false)
  const menuRef = useRef(null)
+ const joinBtnRef = useRef(null)
  const isOwner = post.userId && currentUserId && post.userId === currentUserId
 
  useEffect(() => {
@@ -54,13 +56,29 @@ export default function PostCard({ post, animationDelay = '0s', currentUserId, i
    onLike?.(post.id, newLiked)
  }
 
- function handleActionClick() {
+ function handleActionClick(e) {
    if (!isAuthenticated) {
      onAuthRequired?.()
      return
    }
-   // nothing to do if already in group or request pending
    if (post.isMember || post.hasPending) return
+
+   // ripple from click position
+   const btn = joinBtnRef.current
+   if (btn) {
+     const rect = btn.getBoundingClientRect()
+     const x = e.clientX - rect.left
+     const y = e.clientY - rect.top
+     const ripple = document.createElement('span')
+     ripple.className = 'join-ripple'
+     ripple.style.left = `${x}px`
+     ripple.style.top = `${y}px`
+     btn.appendChild(ripple)
+     ripple.addEventListener('animationend', () => ripple.remove())
+   }
+
+   setJoinPopped(true)
+   setTimeout(() => setJoinPopped(false), 500)
 
    onAction?.(post.id)
  }
@@ -87,7 +105,7 @@ export default function PostCard({ post, animationDelay = '0s', currentUserId, i
  }
 
  return (
-   <div className="post-card" style={{ animationDelay }}>
+   <div className={`post-card${isExiting ? ' post-card-exiting' : ''}`} style={{ animationDelay }}>
      <div className="post-header" ref={menuRef}>
        <div
          className="mini-avatar"
@@ -143,7 +161,8 @@ export default function PostCard({ post, animationDelay = '0s', currentUserId, i
          {helpful} Helpful
        </button>
        <button
-         className={`react-btn ${post.actionStyle || ''}`}
+         ref={joinBtnRef}
+         className={`react-btn ${post.actionStyle || ''}${joinPopped ? ' join-pop' : ''}`}
          style={post.actionBtnStyle || {}}
          type="button"
          disabled={post.isMember || post.hasPending}

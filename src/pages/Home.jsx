@@ -83,8 +83,21 @@ function mapRow(row, profileMap, memberGroupIds, pendingGroupIds, groupMap) {
 
 export default function Home() {
   const [posts, setPosts] = useState([]);
+  const [exitingIds, setExitingIds] = useState(new Set());
   const [authPromptOpen, setAuthPromptOpen] = useState(false);
   const { user } = useAuth();
+
+  function removePostWithAnimation(postId) {
+    setExitingIds((prev) => new Set(prev).add(postId));
+    setTimeout(() => {
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
+      setExitingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(postId);
+        return next;
+      });
+    }, 450);
+  }
 
   function openAuthPrompt() {
     setAuthPromptOpen(true);
@@ -387,7 +400,7 @@ export default function Home() {
       // Remove post from feed unless user is the owner
       const isOwner = post.userId === user.id;
       if (!isOwner) {
-        setPosts((prev) => prev.filter((p) => p.id !== postId));
+        removePostWithAnimation(postId);
       } else {
         setPosts((prev) =>
           prev.map((p) =>
@@ -415,7 +428,7 @@ export default function Home() {
         // Remove post from feed unless user is the owner
         const isOwner = post.userId === user.id;
         if (!isOwner) {
-          setPosts((prev) => prev.filter((p) => p.id !== postId));
+          removePostWithAnimation(postId);
         } else {
           setPosts((prev) =>
             prev.map((p) =>
@@ -428,8 +441,8 @@ export default function Home() {
         return;
       }
 
-      // Successfully joined a public group — remove the post from the feed immediately
-      setPosts((prev) => prev.filter((p) => p.id !== postId));
+      // Successfully joined a public group — remove the post from the feed
+      removePostWithAnimation(postId);
     }
   }
 
@@ -467,6 +480,7 @@ export default function Home() {
               onAction={handleJoinGroup}
               onAuthRequired={openAuthPrompt}
               animationDelay={`${(i + 1) * 0.05}s`}
+              isExiting={exitingIds.has(post.id)}
             />
           ))}
         </main>
