@@ -105,16 +105,11 @@ export default function Home() {
       }
     }
 
-    // Fetch posts, filtering out those from groups the user has already joined
+    // Fetch all posts without filtering by group membership
     var postsQuery = supabase
       .from('posts')
       .select('*')
       .order('created_at', { ascending: false });
-
-    // Apply the filter to exclude posts from joined groups
-    if (joinedGroupIds.length > 0) {
-      postsQuery = postsQuery.not('group_id', 'in', `(${joinedGroupIds.map(id => `"${id}"`).join(',')})`);
-    }
 
     const { data, error } = await postsQuery;
 
@@ -190,10 +185,16 @@ export default function Home() {
     var mapped = [];
     for (var p = 0; p < data.length; p++) {
       var row = data[p];
-      mapped.push({
-        ...mapRow(row, pmap, memberSet, pendingSet, gmap),
-        likedByUser: likedSet.has(String(row.id)),
-      });
+      var isOwner = user && row.user_id === user.id;
+      var isJoinedGroup = joinedGroupIds.includes(row.group_id);
+      
+      // Show post if: (not in a joined group) OR (user is the owner of the post)
+      if (!isJoinedGroup || isOwner) {
+        mapped.push({
+          ...mapRow(row, pmap, memberSet, pendingSet, gmap),
+          likedByUser: likedSet.has(String(row.id)),
+        });
+      }
     }
     setPosts(mapped);
   }
@@ -383,13 +384,19 @@ export default function Home() {
         console.error('Error sending join request:', reqErr);
         return;
       }
-      setPosts((prev) =>
-        prev.map((p) =>
-          p.id === postId
-            ? { ...p, hasPending: true, actionLabel: 'Waiting for approval', actionStyle: 'pending' }
-            : p
-        )
-      );
+      // Remove post from feed unless user is the owner
+      const isOwner = post.userId === user.id;
+      if (!isOwner) {
+        setPosts((prev) => prev.filter((p) => p.id !== postId));
+      } else {
+        setPosts((prev) =>
+          prev.map((p) =>
+            p.id === postId
+              ? { ...p, hasPending: true, actionLabel: 'Waiting for approval', actionStyle: 'pending' }
+              : p
+          )
+        );
+      }
     } else {
       // public group — add directly to user_in_group
       var { error: joinErr } = await supabase
@@ -405,13 +412,19 @@ export default function Home() {
           console.error('Error sending join request (fallback):', reqErr2);
           return;
         }
-        setPosts((prev) =>
-          prev.map((p) =>
-            p.id === postId
-              ? { ...p, hasPending: true, actionLabel: 'Waiting for approval', actionStyle: 'pending' }
-              : p
-          )
-        );
+        // Remove post from feed unless user is the owner
+        const isOwner = post.userId === user.id;
+        if (!isOwner) {
+          setPosts((prev) => prev.filter((p) => p.id !== postId));
+        } else {
+          setPosts((prev) =>
+            prev.map((p) =>
+              p.id === postId
+                ? { ...p, hasPending: true, actionLabel: 'Waiting for approval', actionStyle: 'pending' }
+                : p
+            )
+          );
+        }
         return;
       }
 
