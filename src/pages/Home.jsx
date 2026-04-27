@@ -91,10 +91,27 @@ export default function Home() {
   }
 
   async function loadAllPosts() {
-    const { data, error } = await supabase
+    // First, fetch the list of groups the user has already joined
+    var joinedGroupIds = [];
+    if (user) {
+      var { data: memberRows } = await supabase
+        .from('user_in_group')
+        .select('group_id')
+        .eq('user_id', user.id);
+      if (memberRows) {
+        for (var m = 0; m < memberRows.length; m++) {
+          joinedGroupIds.push(memberRows[m].group_id);
+        }
+      }
+    }
+
+    // Fetch all posts without filtering by group membership
+    var postsQuery = supabase
       .from('posts')
       .select('*')
       .order('created_at', { ascending: false });
+
+    const { data, error } = await postsQuery;
 
     if (error) {
       console.error('Error fetching posts:', error);
@@ -138,29 +155,19 @@ export default function Home() {
       }
     }
 
-    var memberSet = new Set();
+    var memberSet = new Set(joinedGroupIds);
     var pendingSet = new Set();
     var likedSet = new Set();
 
     if (user) {
-      var { data: memberRows } = await supabase
-        .from('user_in_group')
-        .select('group_id')
-        .eq('user_id', user.id);
-      if (memberRows) {
-        for (var k = 0; k < memberRows.length; k++) {
-          memberSet.add(memberRows[k].group_id);
-        }
-      }
-
       var { data: reqRows } = await supabase
         .from('group_join_requests')
         .select('group_id')
         .eq('requester_id', user.id)
         .eq('status', 'pending');
       if (reqRows) {
-        for (var m = 0; m < reqRows.length; m++) {
-          pendingSet.add(reqRows[m].group_id);
+        for (var n = 0; n < reqRows.length; n++) {
+          pendingSet.add(reqRows[n].group_id);
         }
       }
 
@@ -169,8 +176,8 @@ export default function Home() {
         .select('post_id')
         .eq('user_id', user.id);
       if (likesData) {
-        for (var n = 0; n < likesData.length; n++) {
-          likedSet.add(String(likesData[n].post_id));
+        for (var o = 0; o < likesData.length; o++) {
+          likedSet.add(String(likesData[o].post_id));
         }
       }
     }
@@ -178,10 +185,16 @@ export default function Home() {
     var mapped = [];
     for (var p = 0; p < data.length; p++) {
       var row = data[p];
-      mapped.push({
-        ...mapRow(row, pmap, memberSet, pendingSet, gmap),
-        likedByUser: likedSet.has(String(row.id)),
-      });
+      var isOwner = user && row.user_id === user.id;
+      var isJoinedGroup = joinedGroupIds.includes(row.group_id);
+      
+      // Show post if: (not in a joined group) OR (user is the owner of the post)
+      if (!isJoinedGroup || isOwner) {
+        mapped.push({
+          ...mapRow(row, pmap, memberSet, pendingSet, gmap),
+          likedByUser: likedSet.has(String(row.id)),
+        });
+      }
     }
     setPosts(mapped);
   }
@@ -266,7 +279,7 @@ export default function Home() {
   }
 
   async function handlePost(body, course, groupOptions = {}) {
-    const { createNewGroup, newGroupName, selectedGroupId, isPrivateGroup } = groupOptions;
+    const { createNewGroup, newGroupName, selectedGroupId, isPrivateGroup, meetingDays = [], meetingTime = "" } = groupOptions;
 
     var groupId = selectedGroupId || null;
     var groupRequiresInvite = false;
@@ -281,6 +294,8 @@ export default function Home() {
           group_title: newGroupName,
           creator_id: user.id,
           requires_invite: groupRequiresInvite,
+          meeting_days: meetingDays && meetingDays.length > 0 ? meetingDays : [],
+          meeting_time: meetingTime || null,
         }])
         .select('id')
         .single();
@@ -369,13 +384,19 @@ export default function Home() {
         console.error('Error sending join request:', reqErr);
         return;
       }
-      setPosts((prev) =>
-        prev.map((p) =>
-          p.id === postId
-            ? { ...p, hasPending: true, actionLabel: 'Waiting for approval', actionStyle: 'pending' }
-            : p
-        )
-      );
+      // Remove post from feed unless user is the owner
+      const isOwner = post.userId === user.id;
+      if (!isOwner) {
+        setPosts((prev) => prev.filter((p) => p.id !== postId));
+      } else {
+        setPosts((prev) =>
+          prev.map((p) =>
+            p.id === postId
+              ? { ...p, hasPending: true, actionLabel: 'Waiting for approval', actionStyle: 'pending' }
+              : p
+          )
+        );
+      }
     } else {
       // public group — add directly to user_in_group
       var { error: joinErr } = await supabase
@@ -391,23 +412,24 @@ export default function Home() {
           console.error('Error sending join request (fallback):', reqErr2);
           return;
         }
-        setPosts((prev) =>
-          prev.map((p) =>
-            p.id === postId
-              ? { ...p, hasPending: true, actionLabel: 'Waiting for approval', actionStyle: 'pending' }
-              : p
-          )
-        );
+        // Remove post from feed unless user is the owner
+        const isOwner = post.userId === user.id;
+        if (!isOwner) {
+          setPosts((prev) => prev.filter((p) => p.id !== postId));
+        } else {
+          setPosts((prev) =>
+            prev.map((p) =>
+              p.id === postId
+                ? { ...p, hasPending: true, actionLabel: 'Waiting for approval', actionStyle: 'pending' }
+                : p
+            )
+          );
+        }
         return;
       }
 
-      setPosts((prev) =>
-        prev.map((p) =>
-          p.id === postId
-            ? { ...p, isMember: true, actionLabel: 'Joined ✓', actionStyle: 'joined' }
-            : p
-        )
-      );
+      // Successfully joined a public group — remove the post from the feed immediately
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
     }
   }
 

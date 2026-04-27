@@ -16,6 +16,20 @@ export default function NewPostCard({ onPost, isAuthenticated, onAuthRequired })
   const [selectedGroupId, setSelectedGroupId] = useState("");
   const [isPrivateGroup, setIsPrivateGroup] = useState(false);
 
+  // Meeting schedule state
+  const [meetingDays, setMeetingDays] = useState([]);
+  const [meetingTime, setMeetingTime] = useState("");
+
+  const daysOfWeek = [
+    { key: "Mon", label: "M" },
+    { key: "Tue", label: "T" },
+    { key: "Wed", label: "W" },
+    { key: "Thu", label: "Th" },
+    { key: "Fri", label: "F" },
+    { key: "Sat", label: "S" },
+    { key: "Sun", label: "S" }
+  ];
+
   useEffect(() => {
     if (!user) return;
     async function fetchUserGroups() {
@@ -39,6 +53,8 @@ export default function NewPostCard({ onPost, isAuthenticated, onAuthRequired })
     setNewGroupName("");
     setSelectedGroupId("");
     setIsPrivateGroup(false);
+    setMeetingDays([]);
+    setMeetingTime("");
   }
 
   function submit() {
@@ -72,6 +88,8 @@ export default function NewPostCard({ onPost, isAuthenticated, onAuthRequired })
       newGroupName: newGroupName.trim(),
       selectedGroupId,
       isPrivateGroup,
+      meetingDays,
+      meetingTime,
     });
     reset();
   }
@@ -242,6 +260,73 @@ export default function NewPostCard({ onPost, isAuthenticated, onAuthRequired })
                         display: "block",
                       }} />
                     </button>
+                  </div>
+
+                  {/* Meeting Schedule Section */}
+                  <div style={{ marginTop: "0.75rem" }}>
+                    <label style={{ fontSize: "0.82rem", color: "var(--text-secondary, #666)", fontWeight: 500, display: "block", marginBottom: "0.5rem" }}>
+                      Meeting Schedule (Optional)
+                    </label>
+
+                    {/* Days of Week Selection */}
+                    <div style={{ marginBottom: "0.6rem" }}>
+                      <p style={{ fontSize: "0.75rem", color: "var(--text-secondary, #888)", margin: "0 0 0.4rem 0" }}>Days</p>
+                      <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                        {daysOfWeek.map((day) => (
+                          <button
+                            key={day.key}
+                            type="button"
+                            onClick={() => {
+                              setMeetingDays((prev) =>
+                                prev.includes(day.key)
+                                  ? prev.filter((d) => d !== day.key)
+                                  : [...prev, day.key]
+                              );
+                            }}
+                            style={{
+                              padding: "6px 10px",
+                              borderRadius: "6px",
+                              border: meetingDays.includes(day.key)
+                                ? "2px solid var(--accent, #5a8a62)"
+                                : "1.5px solid var(--border, #dde3df)",
+                              background: meetingDays.includes(day.key)
+                                ? "var(--accent, #5a8a62)"
+                                : "transparent",
+                              color: meetingDays.includes(day.key)
+                                ? "#fff"
+                                : "var(--text, #1a1a1a)",
+                              fontSize: "0.75rem",
+                              fontWeight: 500,
+                              cursor: "pointer",
+                              transition: "all 0.2s ease",
+                            }}
+                          >
+                            {day.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Time Selection */}
+                    <div>
+                      <p style={{ fontSize: "0.75rem", color: "var(--text-secondary, #888)", margin: "0 0 0.4rem 0" }}>Time</p>
+                      <input
+                        type="time"
+                        value={meetingTime}
+                        onChange={(e) => setMeetingTime(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "8px 10px",
+                          borderRadius: "6px",
+                          border: "1.5px solid var(--border, #dde3df)",
+                          fontSize: "0.9rem",
+                          outline: "none",
+                          transition: "border-color 0.15s",
+                        }}
+                        onFocus={(e) => (e.target.style.borderColor = "var(--accent, #5a8a62)")}
+                        onBlur={(e) => (e.target.style.borderColor = "var(--border, #dde3df)")}
+                      />
+                    </div>
                   </div>
                 </div>
               )}
