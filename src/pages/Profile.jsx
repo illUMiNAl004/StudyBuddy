@@ -10,6 +10,9 @@ export default function Profile() {
   const [fullName, setFullName] = useState('');
   const [major, setMajor] = useState('');
   const [classYear, setClassYear] = useState('');
+  const [siCourses, setSiCourses] = useState([]);
+  const [availableCourses, setAvailableCourses] = useState([]);
+  const [selectedSiCourse, setSelectedSiCourse] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
@@ -17,8 +20,22 @@ export default function Profile() {
   useEffect(() => {
     if (user) {
       fetchProfile();
+      fetchAvailableCourses();
     }
   }, [user]);
+
+  const fetchAvailableCourses = async () => {
+    try {
+      const { data } = await supabase.functions.invoke('Aidan-SI-scrapper', {
+        body: { course: 'NONE', action: 'get_courses' }
+      });
+      if (data?.courses) {
+        setAvailableCourses(data.courses);
+      }
+    } catch (err) {
+      console.error('Error fetching courses:', err);
+    }
+  };
 
   const fetchProfile = async () => {
     try {
@@ -28,6 +45,11 @@ export default function Profile() {
         .select('full_name, major, class_year')
         .eq('id', user.id)
         .single();
+
+      // Fetch user metadata for SI courses
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userMeta = sessionData?.session?.user?.user_metadata || {};
+      setSiCourses(userMeta.si_courses || []);
 
       if (error) throw error;
       if (data) {
@@ -48,6 +70,13 @@ export default function Profile() {
     setMessage({ type: '', text: '' });
 
     try {
+      // Save SI courses to Auth Metadata
+      const { error: authError } = await supabase.auth.updateUser({
+        data: { si_courses: siCourses }
+      });
+      if (authError) throw authError;
+
+      // Save profile info to DB
       const { error } = await supabase
         .from('profiles')
         .upsert({
@@ -131,6 +160,52 @@ export default function Profile() {
                   onChange={(e) => setClassYear(e.target.value)}
                 />
               </div>
+            </div>
+
+            <div className="auth-field">
+              <label>Subscribed SI Courses</label>
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                <select 
+                  value={selectedSiCourse} 
+                  onChange={e => setSelectedSiCourse(e.target.value)}
+                  style={{ flex: 1 }}
+                >
+                  <option value="">Add Course...</option>
+                  {availableCourses.filter(c => !siCourses.includes(c)).map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    if (selectedSiCourse && !siCourses.includes(selectedSiCourse)) {
+                      setSiCourses([...siCourses, selectedSiCourse]);
+                      setSelectedSiCourse('');
+                    }
+                  }}
+                  disabled={!selectedSiCourse}
+                  style={{ width: 'auto', padding: '0 16px' }}
+                >
+                  Add
+                </button>
+              </div>
+              
+              {siCourses.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {siCourses.map(c => (
+                    <div key={c} style={{ background: '#e3f2fd', color: '#1565c0', fontSize: '0.75rem', padding: '4px 10px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
+                      {c}
+                      <button 
+                        type="button"
+                        onClick={() => setSiCourses(siCourses.filter(sc => sc !== c))} 
+                        style={{ background: 'transparent', border: 'none', color: '#1565c0', cursor: 'pointer', padding: 0, fontSize: '0.9rem', lineHeight: 1 }}
+                      >
+                        &times;
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <button type="submit" disabled={saving}>
