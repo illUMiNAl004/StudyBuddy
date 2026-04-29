@@ -327,6 +327,41 @@ export default function Home() {
       if (memberError) {
         console.error('Error adding creator to user_in_group:', memberError);
       }
+
+      // Generate calendar events for the next 8 weeks based on meeting schedule
+      if (meetingDays && meetingDays.length > 0 && meetingTime) {
+        const [hours, minutes] = meetingTime.split(':').map(Number);
+        const dayMap = { "Sun": 0, "Mon": 1, "Tue": 2, "Wed": 3, "Thu": 4, "Fri": 5, "Sat": 6 };
+        const targetDays = meetingDays.map(d => dayMap[d]);
+        
+        const events = [];
+        const today = new Date();
+        for (let i = 0; i < 56; i++) { // next 8 weeks
+          const d = new Date(today);
+          d.setDate(today.getDate() + i);
+          
+          if (targetDays.includes(d.getDay())) {
+            const start = new Date(d);
+            start.setHours(hours, minutes, 0, 0);
+            
+            const end = new Date(start);
+            end.setHours(start.getHours() + 1); // default 1 hour
+            
+            events.push({
+              id: crypto.randomUUID(),
+              group_id: groupId,
+              location: 'Weekly Group Meeting',
+              start_time: start.toISOString(),
+              end_time: end.toISOString()
+            });
+          }
+        }
+        
+        if (events.length > 0) {
+          const { error: calError } = await supabase.from('calendar_event').insert(events);
+          if (calError) console.error('Error inserting calendar events:', calError);
+        }
+      }
     }
 
     if (!groupId) {
@@ -446,6 +481,16 @@ export default function Home() {
     }
   }
 
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredPosts = posts.filter(post => {
+    if (!searchQuery) return true;
+    const lowerQuery = searchQuery.toLowerCase();
+    return (post.name || '').toLowerCase().includes(lowerQuery) ||
+           (post.course || '').toLowerCase().includes(lowerQuery) ||
+           (post.body || '').toLowerCase().includes(lowerQuery);
+  });
+
   return (
     <div className="page">
       {!user && (
@@ -462,12 +507,21 @@ export default function Home() {
       <div className="layout">
         <Sidebar />
         <main className="feed">
+          <div style={{ marginBottom: '16px', display: 'flex', position: 'relative' }}>
+            <input 
+              type="text" 
+              placeholder="Search groups or posts..." 
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              style={{ width: '100%', padding: '12px 16px', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--surface)', fontSize: '0.95rem' }}
+            />
+          </div>
           <NewPostCard
             onPost={handlePost}
             isAuthenticated={Boolean(user)}
             onAuthRequired={openAuthPrompt}
           />
-          {posts.map((post, i) => (
+          {filteredPosts.map((post, i) => (
             <PostCard
               key={post.id}
               post={post}

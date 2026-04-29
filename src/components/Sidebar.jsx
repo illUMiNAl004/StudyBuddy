@@ -9,17 +9,26 @@ export default function Sidebar() {
   const [profile, setProfile] = useState(null);
   const [groups, setGroups] = useState([]);
   const [notesCount, setNotesCount] = useState(0);
+  const [studySessionsCount, setStudySessionsCount] = useState(0);
+  const [upcomingLrc, setUpcomingLrc] = useState([]);
+  const [loadingLrc, setLoadingLrc] = useState(false);
 
   useEffect(() => {
     if (!user) {
       setProfile(null);
       setGroups([]);
       setNotesCount(0);
+      setStudySessionsCount(0);
+      setUpcomingLrc([]);
       return;
     }
 
     async function fetchSidebarData() {
-      const [{ data: profileData }, { data: memberData }, { count }] = await Promise.all([
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userMeta = sessionData?.session?.user?.user_metadata || {};
+      const userSiCourses = userMeta.si_courses || [];
+
+      const [{ data: profileData }, { data: memberData }, { count: notesCountRes }, { count: sessionsCountRes }] = await Promise.all([
         supabase
           .from('profiles')
           .select('full_name, major, class_year')
@@ -33,6 +42,9 @@ export default function Sidebar() {
           .from('notes')
           .select('id', { count: 'exact', head: true })
           .eq('author_id', user.id),
+        supabase
+          .from('calendar_event')
+          .select('id', { count: 'exact', head: true })
       ]);
 
       if (profileData) setProfile(profileData);
@@ -45,7 +57,33 @@ export default function Sidebar() {
         );
       }
 
-      setNotesCount(count ?? 0);
+      setNotesCount(notesCountRes ?? 0);
+      setStudySessionsCount(sessionsCountRes ?? 0);
+
+      // Fetch Upcoming LRC Sessions
+      if (userSiCourses.length > 0) {
+        setLoadingLrc(true);
+        try {
+          const { data } = await supabase.functions.invoke('Aidan-SI-scrapper', {
+            body: { course: userSiCourses, action: 'fetch' }
+          });
+          if (data?.sessions) {
+            const now = new Date();
+            // Filter future sessions, sort by time, and take top 3
+            const futureSessions = data.sessions
+              .filter(s => new Date(s.start_time) >= now)
+              .sort((a, b) => new Date(a.start_time) - new Date(b.start_time))
+              .slice(0, 3);
+            setUpcomingLrc(futureSessions);
+          }
+        } catch (err) {
+          console.error("Failed to fetch LRC sessions for sidebar:", err);
+        } finally {
+          setLoadingLrc(false);
+        }
+      } else {
+        setUpcomingLrc([]);
+      }
     }
 
     fetchSidebarData();
@@ -61,7 +99,7 @@ export default function Sidebar() {
         <p>
           {profile?.major || 'Undecided'} · {profile?.class_year || 'Undergrad'}
         </p>
-        <div className="profile-stat"><span>Study sessions</span><span>0</span></div>
+        <div className="profile-stat"><span>Study sessions</span><span>{studySessionsCount}</span></div>
         <div className="profile-stat"><span>Groups joined</span><span>{groups.length}</span></div>
         <div className="profile-stat"><span>Notes shared</span><span>{notesCount}</span></div>
       </div>
@@ -84,14 +122,29 @@ export default function Sidebar() {
 
       <div className="sidebar-card">
         <h4>Upcoming LRC</h4>
-        <div className="group-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
-          <span style={{ fontSize: '0.82rem', fontWeight: 500 }}>Session Name</span>
-          <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Day · Time · Location</span>
-        </div>
-        <div className="group-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '2px', borderBottom: 'none' }}>
-          <span style={{ fontSize: '0.82rem', fontWeight: 500 }}>Session Name</span>
-          <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Day · Time · Location</span>
-        </div>
+        {!user ? (
+          <p style={{ fontSize: '0.82rem', color: 'var(--muted)', margin: '4px 0' }}>Log in to see SI sessions</p>
+        ) : loadingLrc ? (
+          <p style={{ fontSize: '0.82rem', color: 'var(--muted)', margin: '4px 0' }}>Loading...</p>
+        ) : upcomingLrc.length === 0 ? (
+          <p style={{ fontSize: '0.82rem', color: 'var(--muted)', margin: '4px 0' }}>No upcoming sessions</p>
+        ) : (
+          upcomingLrc.map((session, index) => {
+            const dateObj = new Date(session.start_time);
+            const dayStr = dateObj.toLocaleDateString(undefined, { weekday: 'short' });
+            const timeStr = dateObj.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+            const isLast = index === upcomingLrc.length - 1;
+            
+            return (
+              <div key={session.id} className="group-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '2px', borderBottom: isLast ? 'none' : '1px solid var(--border)' }}>
+                <span style={{ fontSize: '0.82rem', fontWeight: 500 }}>{session.course_name}</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
+                  {dayStr} · {timeStr} · {session.location.split(':').pop()?.trim() || 'TBD'}
+                </span>
+              </div>
+            );
+          })
+        )}
       </div>
     </aside>
   );

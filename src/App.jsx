@@ -9,6 +9,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import Profile from './pages/Profile'
 import Notes from './pages/Notes'
 import Groups from './pages/Groups'
+import Calendar from './pages/Calendar'
 
 export default function App() {
   const location = useLocation()
@@ -38,7 +39,7 @@ export default function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="/notes" element={<Notes />} />
           <Route path="/groups" element={<Groups />} />
-          <Route path="/calendar" element={<Placeholder label="Calendar" />} />
+          <Route path="/calendar" element={<Calendar />} />
           <Route path="/profile" element={<Profile />} />
         </Route>
       </Routes>
@@ -46,20 +47,3 @@ export default function App() {
   )
 }
 
-function Placeholder({ label }) {
-  return (
-    <div className="page">
-      <div style={{
-        background: 'var(--surface)',
-        border: '1px solid var(--border)',
-        borderRadius: '14px',
-        padding: '40px',
-        textAlign: 'center',
-        color: 'var(--muted)',
-        fontSize: '0.95rem',
-      }}>
-        {label} page — coming soon
-      </div>
-    </div>
-  )
-}

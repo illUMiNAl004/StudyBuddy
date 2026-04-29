@@ -66,7 +66,7 @@ function getEventTime(start, end) {
   return day + ' ' + start_str + '-' + end_str
 }
 
-function GroupTools({ active_tool, on_tool_change, selected_group, all_groups, user_id, on_approve, approving_id, on_reject, rejecting_id }) {
+function GroupTools({ active_tool, on_tool_change, selected_group, all_groups, user_id, on_approve, approving_id, on_reject, rejecting_id, on_add_event, on_import_lrc, on_delete_event }) {
   let title = selected_group
     ? selected_group.name + ' • ' + selected_group.courseName
     : 'All your groups'
@@ -76,24 +76,33 @@ function GroupTools({ active_tool, on_tool_change, selected_group, all_groups, u
   if (active_tool === 'notes') {
     if (selected_group) {
       for (let n of selected_group.notes) {
-        items.push(n + ' • ' + selected_group.courseName)
+        items.push({ type: 'note', label: n + ' • ' + selected_group.courseName })
       }
     } else {
       for (let grp of all_groups) {
         for (let n of grp.notes) {
-          items.push(n + ' • ' + grp.courseName)
+          items.push({ type: 'note', label: n + ' • ' + grp.courseName })
         }
       }
     }
   } else if (active_tool === 'calendar') {
+    let seen = new Set()
     if (selected_group) {
       for (let ev of selected_group.calendar) {
-        items.push(ev.title + ' • ' + ev.time)
+        let str = ev.title + ' • ' + ev.time
+        if (!seen.has(str)) {
+          seen.add(str)
+          items.push({ type: 'calendar_event', label: str, title: ev.title })
+        }
       }
     } else {
       for (let grp of all_groups) {
         for (let ev of grp.calendar) {
-          items.push(ev.title + ' • ' + grp.name)
+          let str = ev.title + ' • ' + ev.time + ' • ' + grp.name
+          if (!seen.has(str)) {
+            seen.add(str)
+            items.push({ type: 'calendar_event', label: str, title: ev.title })
+          }
         }
       }
     }
@@ -124,6 +133,9 @@ function GroupTools({ active_tool, on_tool_change, selected_group, all_groups, u
     team: 'No teammates yet',
   }
 
+  // Any member can delete events now, but only if a group is selected
+  let is_creator = selected_group && selected_group.creatorId === user_id
+
   return (
     <aside className="groups-tools-wrap">
       <div className="groups-tools">
@@ -132,11 +144,34 @@ function GroupTools({ active_tool, on_tool_change, selected_group, all_groups, u
         </div>
         <div className="groups-tools-content">
           <div className="groups-tools-list">
+            {active_tool === 'calendar' && selected_group && is_creator && (
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+                <button 
+                  onClick={on_add_event}
+                  style={{ flex: 1, background: 'var(--accent)', color: '#fff', border: 'none', padding: '8px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}
+                >+ Add Event</button>
+                <button 
+                  onClick={on_import_lrc}
+                  style={{ flex: 1, background: '#1976d2', color: '#fff', border: 'none', padding: '8px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}
+                >📥 Import LRC</button>
+              </div>
+            )}
             {items.length === 0 && (
               <div className="groups-tools-empty">{empty_msgs[active_tool]}</div>
             )}
             {items.length > 0 && active_tool !== 'team' && items.map((item, i) => (
-              <div key={i} className="groups-tools-item">{item}</div>
+              <div key={i} className="groups-tools-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>{item.label}</span>
+                {item.type === 'calendar_event' && selected_group && (
+                  <button 
+                    onClick={() => on_delete_event(item.title)}
+                    style={{ background: 'transparent', border: 'none', color: '#d32f2f', cursor: 'pointer', padding: '4px', fontSize: '1rem', lineHeight: 1 }}
+                    title="Delete meeting"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
             ))}
             {items.length > 0 && active_tool === 'team' && items.map((item, i) => {
               if (item.type === 'request') {
@@ -205,6 +240,19 @@ export default function Groups() {
   const [rejecting_id, setRejectingId] = useState(null)
   const [groupToLeave, setGroupToLeave] = useState(null)
 
+  const [isAddEventOpen, setIsAddEventOpen] = useState(false)
+  const [eventLoc, setEventLoc] = useState('')
+  const [eventStart, setEventStart] = useState('')
+  const [eventEnd, setEventEnd] = useState('')
+  const [addingEvent, setAddingEvent] = useState(false)
+
+  const [isImportOpen, setIsImportOpen] = useState(false)
+  const [importCourse, setImportCourse] = useState('')
+  const [importing, setImporting] = useState(false)
+
+  const [eventToDelete, setEventToDelete] = useState(null)
+  const [deletingEvent, setDeletingEvent] = useState(false)
+
   // Only show mock data when there's no logged-in user at all
   let use_mock = !user
   let mock_for_user = { ...mock_group, creatorId: user?.id || mock_group.creatorId }
@@ -268,6 +316,19 @@ export default function Groups() {
 
         if (e4) throw e4
 
+        let post_ids = (posts_data || []).map(p => p.id)
+        let comments_data = []
+        if (post_ids.length > 0) {
+          const { data: c_data, error: c_err } = await supabase
+            .from('post_comments')
+            .select('id, post_id, author_id, text, created_at')
+            .in('post_id', post_ids)
+            .order('created_at', { ascending: true })
+          
+          if (c_err && !c_err.message.includes('does not exist')) throw c_err
+          if (c_data) comments_data = c_data
+        }
+
         const { data: join_reqs, error: e5 } = await supabase
           .from('group_join_requests')
           .select('id, group_id, requester_id, status')
@@ -290,6 +351,9 @@ export default function Groups() {
         }
         for (let row of (posts_data || [])) {
           if (!all_uids.includes(row.user_id)) all_uids.push(row.user_id)
+        }
+        for (let row of comments_data) {
+          if (!all_uids.includes(row.author_id)) all_uids.push(row.author_id)
         }
         for (let row of (join_reqs || [])) {
           if (!all_uids.includes(row.requester_id)) all_uids.push(row.requester_id)
@@ -315,6 +379,15 @@ export default function Groups() {
           members_by_group[row.group_id].push(name_map[row.user_id] || 'Member')
         }
 
+        let comments_by_post = {}
+        for (let c of comments_data) {
+          if (!comments_by_post[c.post_id]) comments_by_post[c.post_id] = []
+          comments_by_post[c.post_id].push({
+            author: name_map[c.author_id] || 'Member',
+            text: c.text
+          })
+        }
+
         let posts_by_group = {}
         for (let post of (posts_data || [])) {
           if (!posts_by_group[post.group_id]) posts_by_group[post.group_id] = []
@@ -324,7 +397,7 @@ export default function Groups() {
             author: name_map[post.user_id] || 'Member',
             body: body,
             createdAt: getRelativeTime(post.created_at),
-            comments: [],
+            comments: comments_by_post[post.id] || [],
           })
         }
 
@@ -421,26 +494,44 @@ export default function Groups() {
     setOpenComments(prev => ({ ...prev, [post_id]: !prev[post_id] }))
   }
 
-  function addComment(group_id, post_id) {
+  async function addComment(group_id, post_id) {
     let txt = (comment_text[post_id] || '').trim()
     if (!txt) return
 
-    setPosts(prev => {
-      let cur_posts = use_mock ? (posts_map[group_id] || []) : (prev[group_id] || [])
-      let updated = []
-      for (let p of cur_posts) {
-        if (p.id === post_id) {
-          updated.push({
-            ...p,
-            comments: [...p.comments, { author: user?.user_metadata?.full_name || user?.email || 'You', text: txt }],
-          })
-        } else {
-          updated.push(p)
+    if (use_mock) {
+      setPosts(prev => {
+        let cur_posts = (posts_map[group_id] || [])
+        let updated = []
+        for (let p of cur_posts) {
+          if (p.id === post_id) {
+            updated.push({
+              ...p,
+              comments: [...p.comments, { author: user?.user_metadata?.full_name || user?.email || 'You', text: txt }],
+            })
+          } else {
+            updated.push(p)
+          }
         }
-      }
-      return { ...prev, [group_id]: updated }
-    })
-    setCommentText(prev => ({ ...prev, [post_id]: '' }))
+        return { ...prev, [group_id]: updated }
+      })
+      setCommentText(prev => ({ ...prev, [post_id]: '' }))
+      return
+    }
+
+    try {
+      setErr('')
+      const { error } = await supabase.from('post_comments').insert({
+        post_id: post_id,
+        author_id: user.id,
+        text: txt
+      })
+      if (error) throw error
+      
+      setCommentText(prev => ({ ...prev, [post_id]: '' }))
+      load()
+    } catch (e) {
+      setErr(e.message || 'Could not post comment.')
+    }
   }
 
   async function approveRequest(group_id, req_id, req_name) {
@@ -563,6 +654,82 @@ export default function Groups() {
     }
   }
 
+  async function handleAddEvent(e) {
+    e.preventDefault()
+    if (!eventLoc || !eventStart || !eventEnd) return
+    setAddingEvent(true)
+    setErr('')
+    try {
+      const { error } = await supabase.from('calendar_event').insert([{
+        id: crypto.randomUUID(),
+        group_id: selected.id,
+        location: eventLoc,
+        start_time: new Date(eventStart).toISOString(),
+        end_time: new Date(eventEnd).toISOString()
+      }])
+      if (error) throw error
+      
+      setIsAddEventOpen(false)
+      setEventLoc('')
+      setEventStart('')
+      setEventEnd('')
+      load()
+    } catch (err) {
+      setErr(err.message || 'Failed to add event.')
+    } finally {
+      setAddingEvent(false)
+    }
+  }
+
+  async function handleImportLrc(e) {
+    e.preventDefault()
+    if (!importCourse.trim()) return
+    setImporting(true)
+    setErr('')
+    try {
+      const { data, error } = await supabase.functions.invoke('Aidan-SI-scrapper', {
+        body: { course: importCourse.trim(), group_id: selected.id }
+      })
+      if (error) throw new Error(error.message || 'Failed to invoke function')
+      if (data.error) throw new Error(data.error)
+      
+      alert(`Successfully imported ${data.inserted} SI sessions!`)
+      setIsImportOpen(false)
+      setImportCourse('')
+      load()
+    } catch (err) {
+      setErr(err.message || 'Failed to import LRC schedule.')
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  async function confirmDeleteEvent() {
+    if (!eventToDelete) return
+    if (use_mock) {
+      setEventToDelete(null)
+      return
+    }
+    
+    setDeletingEvent(true)
+    try {
+      setErr('')
+      const { error } = await supabase
+        .from('calendar_event')
+        .delete()
+        .eq('group_id', selected.id)
+        .eq('location', eventToDelete)
+
+      if (error) throw error
+      load()
+    } catch (err) {
+      setErr(err.message || 'Failed to delete event. You might not have permission.')
+    } finally {
+      setDeletingEvent(false)
+      setEventToDelete(null)
+    }
+  }
+
   return (
     <div className="page groups-page">
       <div className="groups-layout">
@@ -668,6 +835,9 @@ export default function Groups() {
           approving_id={approving_id}
           on_reject={rejectRequest}
           rejecting_id={rejecting_id}
+          on_add_event={() => setIsAddEventOpen(true)}
+          on_import_lrc={() => setIsImportOpen(true)}
+          on_delete_event={setEventToDelete}
         />
       </div>
       
@@ -698,6 +868,86 @@ export default function Groups() {
                 Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {eventToDelete && (
+        <div className="auth-prompt-backdrop" onClick={() => !deletingEvent && setEventToDelete(null)}>
+          <div className="auth-prompt-card" onClick={(event) => event.stopPropagation()}>
+            <button type="button" className="auth-prompt-close" onClick={() => !deletingEvent && setEventToDelete(null)} aria-label="Close">
+              ×
+            </button>
+            <div className="auth-prompt-badge" style={{ background: '#ffebee', color: '#d32f2f' }}>Delete Event</div>
+            <h3 style={{ marginTop: '0.5rem' }}>Are you sure?</h3>
+            <p style={{ marginTop: '0.5rem', color: 'var(--muted)' }}>
+              Are you sure you want to delete all occurrences of <strong>"{eventToDelete}"</strong>? This action cannot be undone.
+            </p>
+            <div className="auth-prompt-actions">
+              <button 
+                type="button"
+                className="auth-prompt-primary" 
+                disabled={deletingEvent}
+                style={{ background: '#d32f2f', color: '#fff', border: 'none', cursor: deletingEvent ? 'not-allowed' : 'pointer', opacity: deletingEvent ? 0.7 : 1 }} 
+                onClick={confirmDeleteEvent}
+              >
+                {deletingEvent ? 'Deleting...' : 'Yes, delete meeting'}
+              </button>
+              <button 
+                type="button"
+                className="auth-prompt-secondary" 
+                disabled={deletingEvent}
+                style={{ cursor: deletingEvent ? 'not-allowed' : 'pointer', border: '1px solid var(--border)', opacity: deletingEvent ? 0.7 : 1 }} 
+                onClick={() => setEventToDelete(null)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isAddEventOpen && selected && (
+        <div className="auth-prompt-backdrop" onClick={() => !addingEvent && setIsAddEventOpen(false)}>
+          <div className="auth-prompt-card" onClick={(event) => event.stopPropagation()} style={{ maxWidth: '400px' }}>
+            <button type="button" className="auth-prompt-close" onClick={() => !addingEvent && setIsAddEventOpen(false)} aria-label="Close">×</button>
+            <h3 style={{ marginTop: '0.5rem', marginBottom: '1rem' }}>Add Calendar Event</h3>
+            <form onSubmit={handleAddEvent} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '4px' }}>Title / Location</label>
+                <input type="text" required value={eventLoc} onChange={e => setEventLoc(e.target.value)} placeholder="e.g. Library Room 2" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '4px' }}>Start Time</label>
+                <input type="datetime-local" required value={eventStart} onChange={e => setEventStart(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '4px' }}>End Time</label>
+                <input type="datetime-local" required value={eventEnd} onChange={e => setEventEnd(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)' }} />
+              </div>
+              <button type="submit" disabled={addingEvent} style={{ width: '100%', background: 'var(--accent)', color: '#fff', padding: '10px', borderRadius: '8px', border: 'none', fontWeight: 600, marginTop: '8px', cursor: 'pointer' }}>
+                {addingEvent ? 'Adding...' : 'Add Event'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isImportOpen && selected && (
+        <div className="auth-prompt-backdrop" onClick={() => !importing && setIsImportOpen(false)}>
+          <div className="auth-prompt-card" onClick={(event) => event.stopPropagation()} style={{ maxWidth: '400px' }}>
+            <button type="button" className="auth-prompt-close" onClick={() => !importing && setIsImportOpen(false)} aria-label="Close">×</button>
+            <h3 style={{ marginTop: '0.5rem', marginBottom: '8px' }}>Import LRC Schedule</h3>
+            <p style={{ color: 'var(--muted)', fontSize: '0.85rem', marginBottom: '16px' }}>Automatically fetch and insert official UMass SI sessions for your course.</p>
+            <form onSubmit={handleImportLrc} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '4px' }}>Course Code</label>
+                <input type="text" required value={importCourse} onChange={e => setImportCourse(e.target.value)} placeholder="e.g. COMPSCI 121" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)' }} />
+              </div>
+              <button type="submit" disabled={importing} style={{ width: '100%', background: '#1976d2', color: '#fff', padding: '10px', borderRadius: '8px', border: 'none', fontWeight: 600, marginTop: '8px', cursor: 'pointer' }}>
+                {importing ? 'Importing...' : 'Fetch Sessions'}
+              </button>
+            </form>
           </div>
         </div>
       )}
