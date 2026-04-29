@@ -397,19 +397,13 @@ export default function Home() {
         console.error('Error sending join request:', reqErr);
         return;
       }
-      // Remove post from feed unless user is the owner
-      const isOwner = post.userId === user.id;
-      if (!isOwner) {
-        removePostWithAnimation(postId);
-      } else {
-        setPosts((prev) =>
-          prev.map((p) =>
-            p.id === postId
-              ? { ...p, hasPending: true, actionLabel: 'Waiting for approval', actionStyle: 'pending' }
-              : p
-          )
-        );
-      }
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === postId
+            ? { ...p, hasPending: true, actionLabel: 'Waiting for approval', actionStyle: 'pending' }
+            : p
+        )
+      );
     } else {
       // public group — add directly to user_in_group
       var { error: joinErr } = await supabase
@@ -425,19 +419,13 @@ export default function Home() {
           console.error('Error sending join request (fallback):', reqErr2);
           return;
         }
-        // Remove post from feed unless user is the owner
-        const isOwner = post.userId === user.id;
-        if (!isOwner) {
-          removePostWithAnimation(postId);
-        } else {
-          setPosts((prev) =>
-            prev.map((p) =>
-              p.id === postId
-                ? { ...p, hasPending: true, actionLabel: 'Waiting for approval', actionStyle: 'pending' }
-                : p
-            )
-          );
-        }
+        setPosts((prev) =>
+          prev.map((p) =>
+            p.id === postId
+              ? { ...p, hasPending: true, actionLabel: 'Waiting for approval', actionStyle: 'pending' }
+              : p
+          )
+        );
         return;
       }
 
