@@ -10,9 +10,6 @@ export default function Register() {
   const [major, setMajor] = useState('');
   const [classYear, setClassYear] = useState('');
   const [password, setPassword] = useState('');
-  const [siCourses, setSiCourses] = useState([]);
-  const [availableCourses, setAvailableCourses] = useState([]);
-  const [selectedSiCourse, setSelectedSiCourse] = useState('');
   const [passwordStrength, setPasswordStrength] = useState({ level: 0, isValid: false });
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
@@ -37,21 +34,7 @@ export default function Register() {
     if (user) navigate('/');
   }, [user, navigate]);
 
-  useEffect(() => {
-    const fetchAvailableCourses = async () => {
-      try {
-        const { data } = await supabase.functions.invoke('Aidan-SI-scrapper', {
-          body: { course: 'NONE', action: 'get_courses' }
-        });
-        if (data?.courses) {
-          setAvailableCourses(data.courses);
-        }
-      } catch (err) {
-        console.error('Error fetching courses:', err);
-      }
-    };
-    fetchAvailableCourses();
-  }, []);
+
 
   // --- Pure validators (take the value directly, no closure over state) ---
 
@@ -160,7 +143,7 @@ export default function Register() {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName, major, class_year: classYear, si_courses: siCourses } },
+      options: { data: { full_name: fullName, major, class_year: classYear } },
     });
 
     if (error) {
@@ -282,51 +265,7 @@ export default function Register() {
               />
             </div>
 
-            <div className="auth-field">
-              <label>Subscribe to SI Courses (Optional)</label>
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                <select 
-                  value={selectedSiCourse} 
-                  onChange={e => setSelectedSiCourse(e.target.value)}
-                  style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--border)' }}
-                >
-                  <option value="">Add Course...</option>
-                  {availableCourses.filter(c => !siCourses.includes(c)).map(c => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-                <button 
-                  type="button"
-                  onClick={() => {
-                    if (selectedSiCourse && !siCourses.includes(selectedSiCourse)) {
-                      setSiCourses([...siCourses, selectedSiCourse]);
-                      setSelectedSiCourse('');
-                    }
-                  }}
-                  disabled={!selectedSiCourse}
-                  style={{ width: 'auto', padding: '0 16px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '8px', cursor: selectedSiCourse ? 'pointer' : 'not-allowed', opacity: selectedSiCourse ? 1 : 0.6 }}
-                >
-                  Add
-                </button>
-              </div>
-              
-              {siCourses.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                  {siCourses.map(c => (
-                    <div key={c} style={{ background: '#e3f2fd', color: '#1565c0', fontSize: '0.75rem', padding: '4px 10px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
-                      {c}
-                      <button 
-                        type="button"
-                        onClick={() => setSiCourses(siCourses.filter(sc => sc !== c))} 
-                        style={{ background: 'transparent', border: 'none', color: '#1565c0', cursor: 'pointer', padding: 0, fontSize: '0.9rem', lineHeight: 1 }}
-                      >
-                        &times;
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+
 
             <button type="submit" disabled={loading}>
               {loading ? 'Creating Account...' : 'Register'}
