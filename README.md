@@ -53,8 +53,6 @@ VITE_SUPABASE_URL=your_supabase_project_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
-*(Note: There may also be backend configuration required in the `backend/` or `Supabase_Config/` directories depending on your database schema setup.)*
-
 ### 4. Run the Development Server
 
 ```bash
